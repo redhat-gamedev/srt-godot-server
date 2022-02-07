@@ -1,0 +1,23 @@
+syntax = "proto2";
+package redhatgamedev.srt;
+
+import "box2d.proto";
+
+
+message EntityGameEventBuffer
+{
+	enum EntityGameEventBufferType
+	{
+        UNKNOWN = 0;
+		CREATE = 1;
+        RETRIEVE = 2;
+		UPDATE = 3;
+        DESTROY = 4;
+	}
+	required EntityGameEventBufferType type = 1 [default = UNKNOWN];
+    
+    required uint64 entityTag = 2;
+
+	optional string UUID = 3;
+    optional box2d.PbBody body = 4;
+}
