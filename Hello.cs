@@ -1,46 +1,51 @@
 using Godot;
 using System;
-using System.Threading;
+using System.IO;
 using Amqp;
 using Amqp.Framing;
 using Amqp.Types;
+using ProtoBuf;
+using redhatgamedev.srt;
 
-using Redhatgamedev.Srt;
 public class Hello : Sprite
 {
+  // TODO: make config file
+  String url = "amqp://10.88.0.10:5672";
   String commandInQueue = "COMMAND.IN";
   String gameEventOutQueue = "GAME.EVENT.OUT";
   SenderLink gameEventOutSender;
   ReceiverLink gameEventOutReceiver;
 
-  //const CommandBuffer = preload("res://proto/CommandBuffer.gd");
-  //const GameEventBuffer = preload("res://proto/GameEventBuffer.proto");
-
-  void gameEventReceived(IReceiverLink receiver, Message message)
+  void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer) {
+    GD.Print("Processing security command buffer!");
+  }
+  void GameEventReceived(IReceiverLink receiver, Message message)
   {
     GD.Print("Event received!");
     // accept the message so that it gets removed from the queue
     receiver.Accept(message);
 
-    // debug print the message
-    object body = message.Body;
-    GD.Print(body.ToString());
+    byte[] binaryBody = (byte[])message.Body;
+
+    MemoryStream st = new MemoryStream(binaryBody, false);
 
     // prep a command buffer for processing the message
-    //CommandBuffer commandBuffer = new CommandBuffer();
-  }
-  //
-  // Return message as string.
-  //
-  static String GetContent(Message msg)
-  {
-    object body = msg.Body;
-    return body == null ? null : body.ToString();
+    CommandBuffer commandBuffer;
+    commandBuffer = Serializer.Deserialize<CommandBuffer>(st);
+
+    switch(commandBuffer.Type) {
+      case CommandBuffer.CommandBufferType.Security:
+        GD.Print("Security event!");
+        ProcessSecurityGameEvent(commandBuffer.securityCommandBuffer);
+        break;
+      case CommandBuffer.CommandBufferType.Rawinput:
+        GD.Print("Raw input event!");
+        break;
+    }
   }
 
-  async void initializeAMQP()
+  async void InitializeAMQP()
   {
-    String url = "amqp://10.88.0.10:5672";
     Connection.DisableServerCertValidation = true;
     ConnectionFactory factory = new ConnectionFactory();
 
@@ -70,14 +75,14 @@ public class Hello : Sprite
       Capabilities = new Symbol[] { new Symbol("queue") }
     };
     gameEventOutReceiver = new ReceiverLink(session, "srt-game-server-receiver", commandInSource, null);
-    gameEventOutReceiver.Start(9999, gameEventReceived);
+    gameEventOutReceiver.Start(10, GameEventReceived);
   }
 
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
     GD.Print("Hello from C# to Godot :)");
-    initializeAMQP(); 
+    InitializeAMQP(); 
   }
 
   //  // Called every frame. 'delta' is the elapsed time since the previous frame.
