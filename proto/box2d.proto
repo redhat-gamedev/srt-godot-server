@@ -21,7 +21,6 @@ enum PbBodyType {
 }
 
 enum PbShapeType { 
-  ZEROPAD = 0;
   CIRCLE = 1;
   POLYGON = 2;
   EDGE = 3;
@@ -29,7 +28,6 @@ enum PbShapeType {
 }
 
 enum PbJointType {
-  ZEROPAD = 0;
   DISTANCE = 1;
   REVOLUTE = 2;
   PRISMATIC = 3;
