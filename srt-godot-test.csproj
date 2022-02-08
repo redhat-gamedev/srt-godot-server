@@ -5,6 +5,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AMQPNetLite" Version="2.4.3"/>
-    <PackageReference Include="Google.Protobuf" Version="3.19.4"/>
+    <PackageReference Include="protobuf-net" Version="3.0.125"/>
   </ItemGroup>
 </Project>
