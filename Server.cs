@@ -99,11 +99,15 @@ public class Server : Node
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
+    // initialize the logging configuration
+    Node gdlogger = GetNode<Node>("/root/GDLogger");
+    gdlogger.Call("load_config", "res://logger.cfg");
     cslogger = GetNode<CSLogger>("/root/CSLogger");
+
     cslogger.Info("Space Ring Things (SRT) Game Server");
     InitializeAMQP(); 
 
-    cslogger.Info("Initialization complete, beginning game server");
+    cslogger.Info("Beginning game server");
     // TODO: output the current config
   }
 
