@@ -20,6 +20,17 @@ public class Server : Node
 
   void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer) {
     cslogger.Debug("Processing security command buffer!");
+    switch(securityCommandBuffer.Type)
+    {
+      case SecurityCommandBuffer.SecurityCommandBufferType.Join:
+        cslogger.Debug("Player joined!");
+        cslogger.Info($"UUID: {securityCommandBuffer.Uuid}");
+        break;
+      case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
+        cslogger.Debug("Player is leaving!");
+        cslogger.Info($"UUID: {securityCommandBuffer.Uuid}");
+        break;
+    }
   }
   void GameEventReceived(IReceiverLink receiver, Message message)
   {
@@ -35,7 +46,8 @@ public class Server : Node
     CommandBuffer commandBuffer;
     commandBuffer = Serializer.Deserialize<CommandBuffer>(st);
 
-    switch(commandBuffer.Type) {
+    switch(commandBuffer.Type)
+    {
       case CommandBuffer.CommandBufferType.Security:
         cslogger.Debug("Security event!");
         ProcessSecurityGameEvent(commandBuffer.securityCommandBuffer);
@@ -48,10 +60,13 @@ public class Server : Node
 
   async void InitializeAMQP()
   {
+    // TODO: should probably wrap in some kind of try and catch failure to connect?
+    //       is this even async?
+    // TODO: include connection details
+    cslogger.Debug("Initializing AMQP connection");
     Connection.DisableServerCertValidation = true;
     ConnectionFactory factory = new ConnectionFactory();
 
-    // should use async non-blocking connection factory
     Address address = new Address(url);
     var connection = await factory.CreateAsync(address);
 
@@ -64,10 +79,10 @@ public class Server : Node
 
     // multicast topic for the server to send game event updates to clients
     Target gameEventOutTarget = new Target
-      {
-        Address = gameEventOutQueue,
-        Capabilities = new Symbol[] { new Symbol("topic") }
-      };
+    {
+      Address = gameEventOutQueue,
+      Capabilities = new Symbol[] { new Symbol("topic") }
+    };
     gameEventOutSender = new SenderLink(session, "srt-game-server-sender", gameEventOutTarget, null);
 
     // anycast queue for the server to receive events from clients
@@ -78,6 +93,7 @@ public class Server : Node
     };
     gameEventOutReceiver = new ReceiverLink(session, "srt-game-server-receiver", commandInSource, null);
     gameEventOutReceiver.Start(10, GameEventReceived);
+    cslogger.Debug("Finished initializing AMQP connection");
   }
 
   // Called when the node enters the scene tree for the first time.
@@ -86,6 +102,9 @@ public class Server : Node
     cslogger = GetNode<CSLogger>("/root/CSLogger");
     cslogger.Info("Space Ring Things (SRT) Game Server");
     InitializeAMQP(); 
+
+    cslogger.Info("Initialization complete, beginning game server");
+    // TODO: output the current config
   }
 
   //  // Called every frame. 'delta' is the elapsed time since the previous frame.
