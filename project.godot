@@ -11,8 +11,13 @@ config_version=4
 [application]
 
 config/name="srt-godot-test"
-run/main_scene="res://Hello.tscn"
+run/main_scene="res://Server.tscn"
 config/icon="res://icon.png"
+
+[autoload]
+
+GDLogger="*res://logger.gd"
+CSLogger="*res://CSLogger.cs"
 
 [physics]
 

@@ -7,8 +7,10 @@ using Amqp.Types;
 using ProtoBuf;
 using redhatgamedev.srt;
 
-public class Hello : Sprite
+public class Server : Node
 {
+  CSLogger cslogger;
+
   // TODO: make config file
   String url = "amqp://10.88.0.10:5672";
   String commandInQueue = "COMMAND.IN";
@@ -17,11 +19,11 @@ public class Hello : Sprite
   ReceiverLink gameEventOutReceiver;
 
   void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer) {
-    GD.Print("Processing security command buffer!");
+    cslogger.Debug("Processing security command buffer!");
   }
   void GameEventReceived(IReceiverLink receiver, Message message)
   {
-    GD.Print("Event received!");
+    cslogger.Debug("Event received!");
     // accept the message so that it gets removed from the queue
     receiver.Accept(message);
 
@@ -35,11 +37,11 @@ public class Hello : Sprite
 
     switch(commandBuffer.Type) {
       case CommandBuffer.CommandBufferType.Security:
-        GD.Print("Security event!");
+        cslogger.Debug("Security event!");
         ProcessSecurityGameEvent(commandBuffer.securityCommandBuffer);
         break;
       case CommandBuffer.CommandBufferType.Rawinput:
-        GD.Print("Raw input event!");
+        cslogger.Debug("Raw input event!");
         break;
     }
   }
@@ -81,7 +83,8 @@ public class Hello : Sprite
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
-    GD.Print("Hello from C# to Godot :)");
+    cslogger = GetNode<CSLogger>("/root/CSLogger");
+    cslogger.Info("Space Ring Things (SRT) Game Server");
     InitializeAMQP(); 
   }
 
