@@ -15,8 +15,15 @@ public class Server : Node
   String url = "amqp://10.88.0.10:5672";
   String commandInQueue = "COMMAND.IN";
   String gameEventOutQueue = "GAME.EVENT.OUT";
+
+  // for sending game events to all clients
   SenderLink gameEventOutSender;
-  ReceiverLink gameEventOutReceiver;
+
+  // for receiving updates from clients
+  ReceiverLink commandInReceiver;
+
+  // for debug sending updates
+  SenderLink commandInSender;
 
   void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer) {
     cslogger.Debug("Processing security command buffer!");
@@ -91,11 +98,45 @@ public class Server : Node
       Address = commandInQueue,
       Capabilities = new Symbol[] { new Symbol("queue") }
     };
-    gameEventOutReceiver = new ReceiverLink(session, "srt-game-server-receiver", commandInSource, null);
-    gameEventOutReceiver.Start(10, GameEventReceived);
+    commandInReceiver = new ReceiverLink(session, "srt-game-server-receiver", commandInSource, null);
+    commandInReceiver.Start(10, GameEventReceived);
+
+    Target commandInTarget = new Target
+    {
+      Address = commandInQueue,
+      Capabilities = new Symbol[] { new Symbol("queue") }
+    };
+    commandInSender = new SenderLink(session, "srt-game-server-debug-sender", commandInTarget, null);
+
     cslogger.Debug("Finished initializing AMQP connection");
   }
 
+  void _on_JoinAPlayer_pressed()
+  {
+    LineEdit textField = GetNode<LineEdit>("PlayerID");
+    cslogger.Debug($"Sending join with UUID: {textField.Text}");
+
+
+    // construct a join message from the text in the debug field
+    CommandBuffer cb = new CommandBuffer();
+    cb.Type = CommandBuffer.CommandBufferType.Security;
+
+    SecurityCommandBuffer scb = new SecurityCommandBuffer();
+    scb.Uuid = textField.Text;  
+    scb.Type = SecurityCommandBuffer.SecurityCommandBufferType.Join;
+
+    cb.securityCommandBuffer = scb;
+
+    // serialize it into a byte stream
+    MemoryStream st = new MemoryStream();
+    Serializer.Serialize<CommandBuffer>(st, cb);
+
+    byte[] msgBytes = st.ToArray();
+
+    Message msg = new Message(msgBytes);
+    commandInSender.Send(msg);
+
+  }
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
@@ -109,6 +150,8 @@ public class Server : Node
 
     cslogger.Info("Beginning game server");
     // TODO: output the current config
+
+
   }
 
   //  // Called every frame. 'delta' is the elapsed time since the previous frame.
