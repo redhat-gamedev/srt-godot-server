@@ -18,6 +18,12 @@ run/main_scene="res://Server.tscn"
 GDLogger="*res://logger.gd"
 CSLogger="*res://CSLogger.cs"
 
+[display]
+
+window/size/width=1920
+window/size/height=1080
+window/size/resizable=false
+
 [physics]
 
 common/enable_pause_aware_picking=true
