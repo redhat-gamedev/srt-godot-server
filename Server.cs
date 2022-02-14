@@ -16,6 +16,9 @@ public class Server : Node
   String commandInQueue = "COMMAND.IN";
   String gameEventOutQueue = "GAME.EVENT.OUT";
 
+  ConnectionFactory factory;   
+  Connection amqpConnection;
+  Session amqpSession;
   // for sending game events to all clients
   SenderLink gameEventOutSender;
 
@@ -25,6 +28,18 @@ public class Server : Node
   // for debug sending updates
   SenderLink commandInSender;
 
+  Area2D[] playerObjects;
+
+  void InstantiatePlayer(String UUID)
+  {
+    int len = playerObjects.Length;
+    PackedScene playerScene = (PackedScene)ResourceLoader.Load("res://Player.tscn");
+    Area2D newPlayer = (Area2D)playerScene.Instance();
+    playerObjects[len] = newPlayer;
+    AddChild(newPlayer);
+    cslogger.Debug("Added player instance!");
+  }
+
   void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer) {
     cslogger.Debug("Processing security command buffer!");
     switch(securityCommandBuffer.Type)
@@ -32,6 +47,7 @@ public class Server : Node
       case SecurityCommandBuffer.SecurityCommandBufferType.Join:
         cslogger.Debug("Player joined!");
         cslogger.Info($"UUID: {securityCommandBuffer.Uuid}");
+        InstantiatePlayer(securityCommandBuffer.Uuid);
         break;
       case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
         cslogger.Debug("Player is leaving!");
@@ -72,13 +88,13 @@ public class Server : Node
     // TODO: include connection details
     cslogger.Debug("Initializing AMQP connection");
     Connection.DisableServerCertValidation = true;
-    ConnectionFactory factory = new ConnectionFactory();
+    factory = new ConnectionFactory();
 
     Address address = new Address(url);
-    var connection = await factory.CreateAsync(address);
+    amqpConnection = await factory.CreateAsync(address);
 
     //Connection connection = new Connection(address);
-    Session session = new Session(connection);
+    amqpSession = new Session(amqpConnection);
 
     // topics are multicast
     // queues are anycast
@@ -90,7 +106,7 @@ public class Server : Node
       Address = gameEventOutQueue,
       Capabilities = new Symbol[] { new Symbol("topic") }
     };
-    gameEventOutSender = new SenderLink(session, "srt-game-server-sender", gameEventOutTarget, null);
+    gameEventOutSender = new SenderLink(amqpSession, "srt-game-server-sender", gameEventOutTarget, null);
 
     // anycast queue for the server to receive events from clients
     Source commandInSource = new Source
@@ -98,7 +114,7 @@ public class Server : Node
       Address = commandInQueue,
       Capabilities = new Symbol[] { new Symbol("queue") }
     };
-    commandInReceiver = new ReceiverLink(session, "srt-game-server-receiver", commandInSource, null);
+    commandInReceiver = new ReceiverLink(amqpSession, "srt-game-server-receiver", commandInSource, null);
     commandInReceiver.Start(10, GameEventReceived);
 
     Target commandInTarget = new Target
@@ -106,7 +122,7 @@ public class Server : Node
       Address = commandInQueue,
       Capabilities = new Symbol[] { new Symbol("queue") }
     };
-    commandInSender = new SenderLink(session, "srt-game-server-debug-sender", commandInTarget, null);
+    commandInSender = new SenderLink(amqpSession, "srt-game-server-debug-sender", commandInTarget, null);
 
     cslogger.Debug("Finished initializing AMQP connection");
   }
