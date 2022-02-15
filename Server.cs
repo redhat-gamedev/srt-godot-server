@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.IO;
+using System.Collections.Generic;
 using Amqp;
 using Amqp.Framing;
 using Amqp.Types;
@@ -28,14 +29,20 @@ public class Server : Node
   // for debug sending updates
   SenderLink commandInSender;
 
-  Area2D[] playerObjects;
+  [Export]
+  Dictionary<String, Area2D> playerObjects = new Dictionary<string, Area2D>();
 
   void InstantiatePlayer(String UUID)
   {
-    int len = playerObjects.Length;
     PackedScene playerScene = (PackedScene)ResourceLoader.Load("res://Player.tscn");
     Area2D newPlayer = (Area2D)playerScene.Instance();
-    playerObjects[len] = newPlayer;
+    playerObjects.Add(UUID, newPlayer);
+
+    Label playerIDLabel = (Label)newPlayer.GetNode("IDLabel");
+
+    // TODO: deal with really long UUIDs
+    playerIDLabel.Text = UUID;
+
     AddChild(newPlayer);
     cslogger.Debug("Added player instance!");
   }
@@ -88,6 +95,9 @@ public class Server : Node
     // TODO: include connection details
     cslogger.Debug("Initializing AMQP connection");
     Connection.DisableServerCertValidation = true;
+
+    //Trace.TraceLevel = TraceLevel.Frame;
+    //Trace.TraceListener = (l, f, a) => Console.WriteLine(DateTime.Now.ToString("[hh:mm:ss.fff]") + " " + string.Format(f, a));
     factory = new ConnectionFactory();
 
     Address address = new Address(url);
@@ -143,6 +153,7 @@ public class Server : Node
 
     cb.securityCommandBuffer = scb;
 
+    // TODO: should make this a function since we use it a lot
     // serialize it into a byte stream
     MemoryStream st = new MemoryStream();
     Serializer.Serialize<CommandBuffer>(st, cb);
@@ -150,9 +161,12 @@ public class Server : Node
     byte[] msgBytes = st.ToArray();
 
     Message msg = new Message(msgBytes);
-    commandInSender.Send(msg);
 
+    // don't care about the ack on our message being received
+    commandInSender.Send(msg, null, null);
+    //commandInSender.Send(msg);
   }
+
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
@@ -170,9 +184,69 @@ public class Server : Node
 
   }
 
-  //  // Called every frame. 'delta' is the elapsed time since the previous frame.
-  //  public override void _Process(float delta)
-  //  {
-  //      
-  //  }
+  // Called every frame. 'delta' is the elapsed time since the previous frame.
+  public override void _Process(float delta)
+  {
+
+    // look for any inputs to then combine with the UUID in the text box and 
+    // subsequently sent a control message
+    var velocity = Vector2.Zero; // The player's movement vector.
+
+    if (Input.IsActionPressed("rotate_right"))
+    {
+        velocity.x += 1;
+    }
+
+    if (Input.IsActionPressed("rotate_left"))
+    {
+        velocity.x -= 1;
+    }
+
+    if (Input.IsActionPressed("thrust_forward"))
+    {
+        velocity.y += 1;
+    }
+
+    if (Input.IsActionPressed("thrust_reverse"))
+    {
+        velocity.y -= 1;
+    }
+
+    if (velocity.Length() > 0)
+    {
+      // fetch the UUID from the text field to use in the message
+      LineEdit textField = GetNode<LineEdit>("PlayerID");
+
+      // there was some kind of input, so construct a message to send to the server
+      CommandBuffer cb = new CommandBuffer();
+      cb.Type = CommandBuffer.CommandBufferType.Rawinput;
+
+      RawInputCommandBuffer ricb = new RawInputCommandBuffer();
+      ricb.Type = RawInputCommandBuffer.RawInputCommandBufferType.Dualstick;
+      ricb.Uuid = textField.Text;
+
+      DualStickRawInputCommandBuffer dsricb = new DualStickRawInputCommandBuffer();
+
+      Box2d.PbVec2 b2d = new Box2d.PbVec2();
+      b2d.X = velocity.x;
+      b2d.Y = velocity.y;
+
+      dsricb.pbv2Move = b2d;
+      ricb.dualStickRawInputCommandBuffer = dsricb;
+
+      cb.rawInputCommandBuffer = ricb;
+
+      // serialize it into a byte stream
+      MemoryStream st = new MemoryStream();
+      Serializer.Serialize<CommandBuffer>(st, cb);
+
+      byte[] msgBytes = st.ToArray();
+
+      Message msg = new Message(msgBytes);
+
+      // don't care about the ack on our message being received
+      commandInSender.Send(msg, null, null);
+      //commandInSender.Send(msg);
+    }
+  }
 }
