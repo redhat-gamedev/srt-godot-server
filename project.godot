@@ -50,6 +50,8 @@ thrust_reverse={
 [physics]
 
 common/enable_pause_aware_picking=true
+2d/default_gravity=0
+2d/default_gravity_vector=Vector2( 0, 0 )
 
 [rendering]
 

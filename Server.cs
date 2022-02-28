@@ -30,18 +30,34 @@ public class Server : Node
   SenderLink commandInSender;
 
   [Export]
-  Dictionary<String, Area2D> playerObjects = new Dictionary<string, Area2D>();
+  Dictionary<String, Player> playerObjects = new Dictionary<string, Player>();
 
   void InstantiatePlayer(String UUID)
   {
     PackedScene playerScene = (PackedScene)ResourceLoader.Load("res://Player.tscn");
-    Area2D newPlayer = (Area2D)playerScene.Instance();
+    Player newPlayer = (Player)playerScene.Instance();
     playerObjects.Add(UUID, newPlayer);
 
     Label playerIDLabel = (Label)newPlayer.GetNode("IDLabel");
 
     // TODO: deal with really long UUIDs
     playerIDLabel.Text = UUID;
+
+    // figure out the current screen size
+    // TODO: this isn't going to work in the future, I don't think
+    Node rootNode = GetNode<Node>("/root");
+    Vector2 ScreenSize = rootNode.GetViewport().Size;
+
+    // badly randomize start position
+    int minX = (int)(ScreenSize.x / 2 * 0.3);
+    int minY = (int)(ScreenSize.y / 2 * 0.3);
+
+    Random rnd = new Random();
+    int xOffset = rnd.Next(0, minX * 2);
+    int yOffset = rnd.Next(0, minY * 2);
+
+    newPlayer.Position = new Vector2(x: minX + xOffset,
+                                y: minY + yOffset);
 
     AddChild(newPlayer);
     cslogger.Debug("Added player instance!");
@@ -84,9 +100,38 @@ public class Server : Node
         break;
       case CommandBuffer.CommandBufferType.Rawinput:
         cslogger.Debug("Raw input event!");
+
+        if (commandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Move != null)
+        { ProcessMoveCommand(commandBuffer); }
+
+        if (commandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Shoot != null)
+        { ProcessShootCommand(commandBuffer); }
         break;
     }
   }
+
+  void ProcessMoveCommand(CommandBuffer cb)
+  {
+    cslogger.Debug("Processing move command!");
+    DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
+
+    String uuid = cb.rawInputCommandBuffer.Uuid;
+    Player movePlayer = playerObjects[uuid];
+
+    // process thrust
+    Vector2 thrust = new Vector2(0,0);
+
+    // y seems to be inverted?
+    thrust.y = dsricb.pbv2Move.Y * movePlayer.Thrust * -1;
+    thrust.x = dsricb.pbv2Move.X * movePlayer.RotationThrust;
+
+    // for now apply to center of ship
+    Vector2 origin = new Vector2(0,0);
+    movePlayer.AddForce(origin, thrust);
+  }
+
+  void ProcessShootCommand(CommandBuffer cb)
+  {}
 
   async void InitializeAMQP()
   {
@@ -153,7 +198,38 @@ public class Server : Node
 
     cb.securityCommandBuffer = scb;
 
-    // TODO: should make this a function since we use it a lot
+    SendCommand(cb);
+  }
+
+  void ProcessInputEvent(Vector2 velocity)
+  {
+    // fetch the UUID from the text field to use in the message
+    LineEdit textField = GetNode<LineEdit>("PlayerID");
+
+    // there was some kind of input, so construct a message to send to the server
+    CommandBuffer cb = new CommandBuffer();
+    cb.Type = CommandBuffer.CommandBufferType.Rawinput;
+
+    RawInputCommandBuffer ricb = new RawInputCommandBuffer();
+    ricb.Type = RawInputCommandBuffer.RawInputCommandBufferType.Dualstick;
+    ricb.Uuid = textField.Text;
+
+    DualStickRawInputCommandBuffer dsricb = new DualStickRawInputCommandBuffer();
+
+    Box2d.PbVec2 b2d = new Box2d.PbVec2();
+    b2d.X = velocity.x;
+    b2d.Y = velocity.y;
+
+    dsricb.pbv2Move = b2d;
+    ricb.dualStickRawInputCommandBuffer = dsricb;
+
+    cb.rawInputCommandBuffer = ricb;
+    
+    SendCommand(cb);
+  }
+
+  void SendCommand(CommandBuffer cb)
+  {
     // serialize it into a byte stream
     MemoryStream st = new MemoryStream();
     Serializer.Serialize<CommandBuffer>(st, cb);
@@ -164,6 +240,9 @@ public class Server : Node
 
     // don't care about the ack on our message being received
     commandInSender.Send(msg, null, null);
+
+    // this should work but there's something weird and it blows up the 
+    // connection
     //commandInSender.Send(msg);
   }
 
@@ -180,16 +259,13 @@ public class Server : Node
 
     cslogger.Info("Beginning game server");
     // TODO: output the current config
-
-
   }
 
   // Called every frame. 'delta' is the elapsed time since the previous frame.
   public override void _Process(float delta)
   {
 
-    // look for any inputs to then combine with the UUID in the text box and 
-    // subsequently sent a control message
+    // look for any inputs, subsequently sent a control message
     var velocity = Vector2.Zero; // The player's movement vector.
 
     if (Input.IsActionPressed("rotate_right"))
@@ -214,39 +290,7 @@ public class Server : Node
 
     if (velocity.Length() > 0)
     {
-      // fetch the UUID from the text field to use in the message
-      LineEdit textField = GetNode<LineEdit>("PlayerID");
-
-      // there was some kind of input, so construct a message to send to the server
-      CommandBuffer cb = new CommandBuffer();
-      cb.Type = CommandBuffer.CommandBufferType.Rawinput;
-
-      RawInputCommandBuffer ricb = new RawInputCommandBuffer();
-      ricb.Type = RawInputCommandBuffer.RawInputCommandBufferType.Dualstick;
-      ricb.Uuid = textField.Text;
-
-      DualStickRawInputCommandBuffer dsricb = new DualStickRawInputCommandBuffer();
-
-      Box2d.PbVec2 b2d = new Box2d.PbVec2();
-      b2d.X = velocity.x;
-      b2d.Y = velocity.y;
-
-      dsricb.pbv2Move = b2d;
-      ricb.dualStickRawInputCommandBuffer = dsricb;
-
-      cb.rawInputCommandBuffer = ricb;
-
-      // serialize it into a byte stream
-      MemoryStream st = new MemoryStream();
-      Serializer.Serialize<CommandBuffer>(st, cb);
-
-      byte[] msgBytes = st.ToArray();
-
-      Message msg = new Message(msgBytes);
-
-      // don't care about the ack on our message being received
-      commandInSender.Send(msg, null, null);
-      //commandInSender.Send(msg);
+      ProcessInputEvent(velocity);
     }
   }
 }

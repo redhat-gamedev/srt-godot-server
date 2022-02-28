@@ -3,7 +3,8 @@
 [ext_resource path="res://images/ship.png" type="Texture" id=1]
 [ext_resource path="res://Player.cs" type="Script" id=2]
 
-[node name="PlayerShip" type="Area2D"]
+[node name="PlayerShip" type="RigidBody2D"]
+mass = 150.0
 script = ExtResource( 2 )
 __meta__ = {
 "_edit_group_": true
