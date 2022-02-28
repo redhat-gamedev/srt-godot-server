@@ -4,11 +4,8 @@
 [ext_resource path="res://Player.cs" type="Script" id=2]
 
 [node name="PlayerShip" type="RigidBody2D"]
-mass = 150.0
+mass = 65535.0
 script = ExtResource( 2 )
-__meta__ = {
-"_edit_group_": true
-}
 
 [node name="Sprite" type="Sprite" parent="."]
 scale = Vector2( 0.25, 0.25 )
@@ -24,6 +21,28 @@ margin_right = 35.0
 margin_bottom = 42.0
 grow_horizontal = 2
 text = "UUIDUUID"
+align = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="LinearVelocity" type="Label" parent="."]
+margin_left = -33.0
+margin_top = 41.0
+margin_right = 33.0
+margin_bottom = 55.0
+text = "LinVel"
+align = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="AngularVelocity" type="Label" parent="."]
+margin_left = -33.0
+margin_top = 53.0
+margin_right = 33.0
+margin_bottom = 67.0
+text = "AngVel"
 align = 1
 __meta__ = {
 "_edit_use_anchors_": false

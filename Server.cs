@@ -123,11 +123,13 @@ public class Server : Node
 
     // y seems to be inverted?
     thrust.y = dsricb.pbv2Move.Y * movePlayer.Thrust * -1;
-    thrust.x = dsricb.pbv2Move.X * movePlayer.RotationThrust;
 
     // for now apply to center of ship
     Vector2 origin = new Vector2(0,0);
-    movePlayer.AddForce(origin, thrust);
+    movePlayer.ApplyImpulse(origin, thrust);
+    //    movePlayer.AddForce(Vector2.Zero, movePlayer.GlobalTransform.y * movePlayer.Thrust * -1);
+
+    movePlayer.ApplyTorqueImpulse(movePlayer.RotationThrust * dsricb.pbv2Move.X);
   }
 
   void ProcessShootCommand(CommandBuffer cb)
