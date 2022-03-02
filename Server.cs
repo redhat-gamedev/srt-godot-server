@@ -36,12 +36,9 @@ public class Server : Node
   {
     PackedScene playerScene = (PackedScene)ResourceLoader.Load("res://Player.tscn");
     Player newPlayer = (Player)playerScene.Instance();
+    newPlayer.uuid = UUID;
+
     playerObjects.Add(UUID, newPlayer);
-
-    Label playerIDLabel = (Label)newPlayer.GetNode("IDLabel");
-
-    // TODO: deal with really long UUIDs
-    playerIDLabel.Text = UUID;
 
     // figure out the current screen size
     // TODO: this isn't going to work in the future, I don't think
@@ -64,23 +61,21 @@ public class Server : Node
   }
 
   void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer) {
-    cslogger.Debug("Processing security command buffer!");
+    cslogger.Verbose("Processing security command buffer!");
     switch(securityCommandBuffer.Type)
     {
       case SecurityCommandBuffer.SecurityCommandBufferType.Join:
-        cslogger.Debug("Player joined!");
-        cslogger.Info($"UUID: {securityCommandBuffer.Uuid}");
+        cslogger.Info($"Join UUID: {securityCommandBuffer.Uuid}");
         InstantiatePlayer(securityCommandBuffer.Uuid);
         break;
       case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
-        cslogger.Debug("Player is leaving!");
-        cslogger.Info($"UUID: {securityCommandBuffer.Uuid}");
+        cslogger.Info($"Leave UUID: {securityCommandBuffer.Uuid}");
         break;
     }
   }
   void GameEventReceived(IReceiverLink receiver, Message message)
   {
-    cslogger.Debug("Event received!");
+    cslogger.Verbose("Event received!");
     // accept the message so that it gets removed from the queue
     receiver.Accept(message);
 
@@ -95,11 +90,11 @@ public class Server : Node
     switch(commandBuffer.Type)
     {
       case CommandBuffer.CommandBufferType.Security:
-        cslogger.Debug("Security event!");
+        cslogger.Verbose("Security event!");
         ProcessSecurityGameEvent(commandBuffer.securityCommandBuffer);
         break;
       case CommandBuffer.CommandBufferType.Rawinput:
-        cslogger.Debug("Raw input event!");
+        cslogger.Verbose("Raw input event!");
 
         if (commandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Move != null)
         { ProcessMoveCommand(commandBuffer); }
@@ -112,24 +107,17 @@ public class Server : Node
 
   void ProcessMoveCommand(CommandBuffer cb)
   {
-    cslogger.Debug("Processing move command!");
+    cslogger.Verbose("Processing move command!");
     DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
     String uuid = cb.rawInputCommandBuffer.Uuid;
     Player movePlayer = playerObjects[uuid];
 
-    // process thrust
-    Vector2 thrust = new Vector2(0,0);
+    // process thrust and rotation
+    Vector2 thrust = new Vector2(dsricb.pbv2Move.X, dsricb.pbv2Move.Y);
 
-    // y seems to be inverted?
-    thrust.y = dsricb.pbv2Move.Y * movePlayer.Thrust * -1;
-
-    // for now apply to center of ship
-    Vector2 origin = new Vector2(0,0);
-    movePlayer.ApplyImpulse(origin, thrust);
-    //    movePlayer.AddForce(Vector2.Zero, movePlayer.GlobalTransform.y * movePlayer.Thrust * -1);
-
-    movePlayer.ApplyTorqueImpulse(movePlayer.RotationThrust * dsricb.pbv2Move.X);
+    // push the thrust input onto the player's array
+    movePlayer.MovementQueue.Enqueue(thrust);
   }
 
   void ProcessShootCommand(CommandBuffer cb)
@@ -186,6 +174,9 @@ public class Server : Node
 
   void _on_JoinAPlayer_pressed()
   {
+
+    // TODO: prevent joining the same UUID twice
+
     LineEdit textField = GetNode<LineEdit>("PlayerID");
     cslogger.Debug($"Sending join with UUID: {textField.Text}");
 
@@ -266,6 +257,9 @@ public class Server : Node
   // Called every frame. 'delta' is the elapsed time since the previous frame.
   public override void _Process(float delta)
   {
+
+    // TODO: should probably have some exception fire if we don't connect to
+    // AMQ within an appropriate period of time, or get disconnected, etc.
 
     // look for any inputs, subsequently sent a control message
     var velocity = Vector2.Zero; // The player's movement vector.
