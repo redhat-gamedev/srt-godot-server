@@ -37,7 +37,7 @@ public class Player : KinematicBody2D
   int MissileSpeed = 50;
   
   [Export]
-  float MissileLife = 5;
+  float MissileLife = 8;
 
   public void ExpireMissile() { MyMissile = null; }
 
@@ -51,12 +51,19 @@ public class Player : KinematicBody2D
 
     // missile should point in the same direction as the ship
     MyMissile.Rotation = Rotation;
+    
+    // start at our position
+    MyMissile.Position = Position;
 
     // set the speed and life based on the current modifiers
     MyMissile.MissileSpeed = MissileSpeed;
     MyMissile.MissileLife = MissileLife;
 
-    AddChild(MyMissile);
+    // this is a poop way to do this
+    MyMissile.MyPlayer = this;
+
+    Node rootNode = GetNode<Node>("/root");
+    rootNode.AddChild(MyMissile);
     cslogger.Debug("Added missile instance!");
   }
 
@@ -77,6 +84,9 @@ public class Player : KinematicBody2D
   // Called every frame. 'delta' is the elapsed time since the previous frame.
   public override void _PhysicsProcess(float delta)
   {
+    // somewhat based on: https://kidscancode.org/godot_recipes/2d/topdown_movement/
+    // "rotate and move" / asteroids-style-ish
+
     Label angularVelocityLabel = (Label)GetNode("AngularVelocity");
     Label linearVelocityLabel = (Label)GetNode("LinearVelocity");
 

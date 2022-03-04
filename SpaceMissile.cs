@@ -10,15 +10,17 @@ public class SpaceMissile : Area2D
   [Export]
   public int MissileSpeed;
 
+  public Player MyPlayer;
+
   // Called when the node enters the scene tree for the first time.
   public override void _Ready() {  }
 
-  public override void _Process(float delta)
+  public override void _PhysicsProcess(float delta)
   {
     // create a new vector and rotate it by the current heading of the missile
     // then move the missile in the direction of that vector
     Vector2 velocity = new Vector2(0, -1);
-    velocity.Rotated(Rotation);
+    velocity = velocity.Rotated(Rotation);
     velocity = velocity * MissileSpeed * delta;
     Position += velocity;
 
@@ -27,8 +29,9 @@ public class SpaceMissile : Area2D
     MissileLife -= delta;
     if (MissileLife <= 0) { 
       QueueFree(); 
-      Player myParent = (Player)GetParent();
-      myParent.ExpireMissile();
+
+      // there's got to be a better way
+      MyPlayer.ExpireMissile();
     }
   }
 
