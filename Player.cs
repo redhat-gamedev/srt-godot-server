@@ -33,11 +33,15 @@ public class Player : KinematicBody2D
 
   // for now only one missile at a time
   SpaceMissile MyMissile = null;
+
   [Export] 
-  int MissileSpeed = 50;
+  int MissileSpeed = 300;
   
   [Export]
-  float MissileLife = 8;
+  float MissileLife = 4;
+
+  [Export]
+  int MissileDamage = 25;
 
   public void ExpireMissile() { MyMissile = null; }
 
@@ -52,12 +56,21 @@ public class Player : KinematicBody2D
     // missile should point in the same direction as the ship
     MyMissile.Rotation = Rotation;
     
+    // TODO: need to offset this to the front of the ship
     // start at our position
     MyMissile.Position = Position;
 
-    // set the speed and life based on the current modifiers
+    // negative direction is "up"
+    Vector2 offset = new Vector2(0, -100);
+
+    // rotate the offset to match the current ship heading
+    offset = offset.Rotated(Rotation);
+    MyMissile.Position = MyMissile.Position + offset;
+
+    // set missile's parameters based on current modifiers
     MyMissile.MissileSpeed = MissileSpeed;
     MyMissile.MissileLife = MissileLife;
+    MyMissile.MissileDamage = MissileDamage;
 
     // this is a poop way to do this
     MyMissile.MyPlayer = this;
