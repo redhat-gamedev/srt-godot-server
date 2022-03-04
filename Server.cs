@@ -17,7 +17,7 @@ public class Server : Node
   String commandInQueue = "COMMAND.IN";
   String gameEventOutQueue = "GAME.EVENT.OUT";
 
-  ConnectionFactory factory;   
+  ConnectionFactory factory;
   Connection amqpConnection;
   Session amqpSession;
   // for sending game events to all clients
@@ -60,9 +60,10 @@ public class Server : Node
     cslogger.Debug("Added player instance!");
   }
 
-  void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer) {
+  void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer)
+  {
     cslogger.Verbose("Processing security command buffer!");
-    switch(securityCommandBuffer.Type)
+    switch (securityCommandBuffer.Type)
     {
       case SecurityCommandBuffer.SecurityCommandBufferType.Join:
         cslogger.Info($"Join UUID: {securityCommandBuffer.Uuid}");
@@ -87,7 +88,7 @@ public class Server : Node
     CommandBuffer commandBuffer;
     commandBuffer = Serializer.Deserialize<CommandBuffer>(st);
 
-    switch(commandBuffer.Type)
+    switch (commandBuffer.Type)
     {
       case CommandBuffer.CommandBufferType.Security:
         cslogger.Verbose("Security event!");
@@ -121,7 +122,15 @@ public class Server : Node
   }
 
   void ProcessShootCommand(CommandBuffer cb)
-  {}
+  {
+    cslogger.Debug("Processing shoot command!");
+    DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
+
+    String uuid = cb.rawInputCommandBuffer.Uuid;
+    Player movePlayer = playerObjects[uuid];
+
+    movePlayer.FireMissile();
+  }
 
   async void InitializeAMQP()
   {
@@ -174,27 +183,25 @@ public class Server : Node
 
   void _on_JoinAPlayer_pressed()
   {
-
-    // TODO: prevent joining the same UUID twice
-
     LineEdit textField = GetNode<LineEdit>("PlayerID");
+
+    // don't do anything if this UUID already exists
+    if (playerObjects.ContainsKey(textField.Text)) { return; }
+
     cslogger.Debug($"Sending join with UUID: {textField.Text}");
 
-
     // construct a join message from the text in the debug field
-    CommandBuffer cb = new CommandBuffer();
-    cb.Type = CommandBuffer.CommandBufferType.Security;
-
     SecurityCommandBuffer scb = new SecurityCommandBuffer();
-    scb.Uuid = textField.Text;  
+    scb.Uuid = textField.Text;
     scb.Type = SecurityCommandBuffer.SecurityCommandBufferType.Join;
 
+    CommandBuffer cb = new CommandBuffer();
+    cb.Type = CommandBuffer.CommandBufferType.Security;
     cb.securityCommandBuffer = scb;
-
     SendCommand(cb);
   }
 
-  void ProcessInputEvent(Vector2 velocity)
+  void ProcessInputEvent(Vector2 velocity, Vector2 shoot)
   {
     // fetch the UUID from the text field to use in the message
     LineEdit textField = GetNode<LineEdit>("PlayerID");
@@ -208,16 +215,26 @@ public class Server : Node
     ricb.Uuid = textField.Text;
 
     DualStickRawInputCommandBuffer dsricb = new DualStickRawInputCommandBuffer();
+    if ( (velocity.Length() > 0) || (shoot.Length() > 0) )
 
-    Box2d.PbVec2 b2d = new Box2d.PbVec2();
-    b2d.X = velocity.x;
-    b2d.Y = velocity.y;
+    if (velocity.Length() > 0)
+    {
+      Box2d.PbVec2 b2dMove = new Box2d.PbVec2();
+      b2dMove.X = velocity.x;
+      b2dMove.Y = velocity.y;
+      dsricb.pbv2Move = b2dMove;
+    }
 
-    dsricb.pbv2Move = b2d;
+    if (shoot.Length() > 0)
+    {
+      // TODO: make this actually depend on ship direction
+      Box2d.PbVec2 b2dShoot = new Box2d.PbVec2();
+      b2dShoot.Y = 1;
+      dsricb.pbv2Shoot = b2dShoot;
+    }
+
     ricb.dualStickRawInputCommandBuffer = dsricb;
-
     cb.rawInputCommandBuffer = ricb;
-    
     SendCommand(cb);
   }
 
@@ -248,7 +265,7 @@ public class Server : Node
     cslogger = GetNode<CSLogger>("/root/CSLogger");
 
     cslogger.Info("Space Ring Things (SRT) Game Server");
-    InitializeAMQP(); 
+    InitializeAMQP();
 
     cslogger.Info("Beginning game server");
     // TODO: output the current config
@@ -262,31 +279,37 @@ public class Server : Node
     // AMQ within an appropriate period of time, or get disconnected, etc.
 
     // look for any inputs, subsequently sent a control message
-    var velocity = Vector2.Zero; // The player's movement vector.
+    var velocity = Vector2.Zero; // The player's movement direction.
+    var shoot = Vector2.Zero; // the player's shoot status
 
     if (Input.IsActionPressed("rotate_right"))
     {
-        velocity.x += 1;
+      velocity.x += 1;
     }
 
     if (Input.IsActionPressed("rotate_left"))
     {
-        velocity.x -= 1;
+      velocity.x -= 1;
     }
 
     if (Input.IsActionPressed("thrust_forward"))
     {
-        velocity.y += 1;
+      velocity.y += 1;
     }
 
     if (Input.IsActionPressed("thrust_reverse"))
     {
-        velocity.y -= 1;
+      velocity.y -= 1;
     }
 
-    if (velocity.Length() > 0)
+    if (Input.IsActionPressed("fire"))
     {
-      ProcessInputEvent(velocity);
+      shoot.y = 1;
+    }
+
+    if ( (velocity.Length() > 0) || (shoot.Length() > 0) )
+    {
+      ProcessInputEvent(velocity, shoot);
     }
   }
 }
