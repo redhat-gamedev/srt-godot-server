@@ -12,22 +12,7 @@ public class Server : Node
 {
   CSLogger cslogger;
 
-  // TODO: make config file
-  String url = "amqp://10.88.0.10:5672";
-  String commandInQueue = "COMMAND.IN";
-  String gameEventOutQueue = "GAME.EVENT.OUT";
-
-  ConnectionFactory factory;
-  Connection amqpConnection;
-  Session amqpSession;
-  // for sending game events to all clients
-  SenderLink gameEventOutSender;
-
-  // for receiving updates from clients
-  ReceiverLink commandInReceiver;
-
-  // for debug sending updates
-  SenderLink commandInSender;
+  AMQPserver MessageInterface;
 
   [Export]
   Dictionary<String, Player> playerObjects = new Dictionary<string, Player>();
@@ -55,6 +40,7 @@ public class Server : Node
     Node rootNode = GetNode<Node>("/root");
     Vector2 ScreenSize = rootNode.GetViewport().Size;
 
+    // TODO: need to ensure players are not on top of one another for real
     // badly randomize start position
     int minX = (int)(ScreenSize.x / 2 * 0.3);
     int minY = (int)(ScreenSize.y / 2 * 0.3);
@@ -68,52 +54,6 @@ public class Server : Node
 
     AddChild(newPlayer);
     cslogger.Debug("Added player instance!");
-  }
-
-  void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer)
-  {
-    cslogger.Verbose("Processing security command buffer!");
-    switch (securityCommandBuffer.Type)
-    {
-      case SecurityCommandBuffer.SecurityCommandBufferType.Join:
-        cslogger.Info($"Join UUID: {securityCommandBuffer.Uuid}");
-        InstantiatePlayer(securityCommandBuffer.Uuid);
-        break;
-      case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
-        cslogger.Info($"Leave UUID: {securityCommandBuffer.Uuid}");
-        break;
-    }
-  }
-  void GameEventReceived(IReceiverLink receiver, Message message)
-  {
-    cslogger.Verbose("Event received!");
-    // accept the message so that it gets removed from the queue
-    receiver.Accept(message);
-
-    byte[] binaryBody = (byte[])message.Body;
-
-    MemoryStream st = new MemoryStream(binaryBody, false);
-
-    // prep a command buffer for processing the message
-    CommandBuffer commandBuffer;
-    commandBuffer = Serializer.Deserialize<CommandBuffer>(st);
-
-    switch (commandBuffer.Type)
-    {
-      case CommandBuffer.CommandBufferType.Security:
-        cslogger.Verbose("Security event!");
-        ProcessSecurityGameEvent(commandBuffer.securityCommandBuffer);
-        break;
-      case CommandBuffer.CommandBufferType.Rawinput:
-        cslogger.Verbose("Raw input event!");
-
-        if (commandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Move != null)
-        { ProcessMoveCommand(commandBuffer); }
-
-        if (commandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Shoot != null)
-        { ProcessShootCommand(commandBuffer); }
-        break;
-    }
   }
 
   void ProcessMoveCommand(CommandBuffer cb)
@@ -142,75 +82,59 @@ public class Server : Node
     movePlayer.FireMissile();
   }
 
-  async void InitializeAMQP()
+  void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer)
   {
-    // TODO: should probably wrap in some kind of try and catch failure to connect?
-    //       is this even async?
-    // TODO: include connection details
-    cslogger.Debug("Initializing AMQP connection");
-    Connection.DisableServerCertValidation = true;
-
-    //Trace.TraceLevel = TraceLevel.Frame;
-    //Trace.TraceListener = (l, f, a) => Console.WriteLine(DateTime.Now.ToString("[hh:mm:ss.fff]") + " " + string.Format(f, a));
-    factory = new ConnectionFactory();
-
-    Address address = new Address(url);
-    amqpConnection = await factory.CreateAsync(address);
-
-    //Connection connection = new Connection(address);
-    amqpSession = new Session(amqpConnection);
-
-    // topics are multicast
-    // queues are anycast
-    // https://stackoverflow.com/a/51595195
-
-    // multicast topic for the server to send game event updates to clients
-    Target gameEventOutTarget = new Target
+    cslogger.Verbose("Processing security command buffer!");
+    switch (securityCommandBuffer.Type)
     {
-      Address = gameEventOutQueue,
-      Capabilities = new Symbol[] { new Symbol("topic") }
-    };
-    gameEventOutSender = new SenderLink(amqpSession, "srt-game-server-sender", gameEventOutTarget, null);
-
-    // anycast queue for the server to receive events from clients
-    Source commandInSource = new Source
-    {
-      Address = commandInQueue,
-      Capabilities = new Symbol[] { new Symbol("queue") }
-    };
-    commandInReceiver = new ReceiverLink(amqpSession, "srt-game-server-receiver", commandInSource, null);
-    commandInReceiver.Start(10, GameEventReceived);
-
-    Target commandInTarget = new Target
-    {
-      Address = commandInQueue,
-      Capabilities = new Symbol[] { new Symbol("queue") }
-    };
-    commandInSender = new SenderLink(amqpSession, "srt-game-server-debug-sender", commandInTarget, null);
-
-    cslogger.Debug("Finished initializing AMQP connection");
+      case SecurityCommandBuffer.SecurityCommandBufferType.Join:
+        cslogger.Info($"Join UUID: {securityCommandBuffer.Uuid}");
+        InstantiatePlayer(securityCommandBuffer.Uuid);
+        break;
+      case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
+        cslogger.Info($"Leave UUID: {securityCommandBuffer.Uuid}");
+        break;
+    }
   }
 
-  void _on_JoinAPlayer_pressed()
+  public void ProcessGameEvent(CommandBuffer CommandBuffer)
   {
-    LineEdit textField = GetNode<LineEdit>("PlayerID");
+    switch (CommandBuffer.Type)
+    {
+      case CommandBuffer.CommandBufferType.Security:
+        cslogger.Verbose("Security event!");
+        ProcessSecurityGameEvent(CommandBuffer.securityCommandBuffer);
+        break;
+      case CommandBuffer.CommandBufferType.Rawinput:
+        cslogger.Verbose("Raw input event!");
 
-    // don't do anything if this UUID already exists
-    if (playerObjects.ContainsKey(textField.Text)) { return; }
+        if (CommandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Move != null)
+        { ProcessMoveCommand(CommandBuffer); }
 
-    cslogger.Debug($"Sending join with UUID: {textField.Text}");
-
-    // construct a join message from the text in the debug field
-    SecurityCommandBuffer scb = new SecurityCommandBuffer();
-    scb.Uuid = textField.Text;
-    scb.Type = SecurityCommandBuffer.SecurityCommandBufferType.Join;
-
-    CommandBuffer cb = new CommandBuffer();
-    cb.Type = CommandBuffer.CommandBufferType.Security;
-    cb.securityCommandBuffer = scb;
-    SendCommand(cb);
+        if (CommandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Shoot != null)
+        { ProcessShootCommand(CommandBuffer); }
+        break;
+    }
   }
 
+  // Called when the node enters the scene tree for the first time.
+  public override void _Ready()
+  {
+    // initialize the logging configuration
+    Node gdlogger = GetNode<Node>("/root/GDLogger");
+    gdlogger.Call("load_config", "res://logger.cfg");
+    cslogger = GetNode<CSLogger>("/root/CSLogger");
+
+    cslogger.Info("Space Ring Things (SRT) Game Server");
+
+    MessageInterface = GetNode<AMQPserver>("/root/AMQPserver");
+
+    cslogger.Info("Beginning game server");
+    // TODO: output the current config
+  }
+
+
+  // ****** THINGS RELATED TO DEBUG ******
   void ProcessInputEvent(Vector2 velocity, Vector2 shoot)
   {
     // fetch the UUID from the text field to use in the message
@@ -245,40 +169,28 @@ public class Server : Node
 
     ricb.dualStickRawInputCommandBuffer = dsricb;
     cb.rawInputCommandBuffer = ricb;
-    SendCommand(cb);
+    MessageInterface.SendCommand(cb);
   }
 
-  void SendCommand(CommandBuffer cb)
+  // TODO: should move debug to its own scene that's optionally loaded
+  void _on_JoinAPlayer_pressed()
   {
-    // serialize it into a byte stream
-    MemoryStream st = new MemoryStream();
-    Serializer.Serialize<CommandBuffer>(st, cb);
+    LineEdit textField = GetNode<LineEdit>("PlayerID");
 
-    byte[] msgBytes = st.ToArray();
+    // don't do anything if this UUID already exists
+    if (playerObjects.ContainsKey(textField.Text)) { return; }
 
-    Message msg = new Message(msgBytes);
+    cslogger.Debug($"Sending join with UUID: {textField.Text}");
 
-    // don't care about the ack on our message being received
-    commandInSender.Send(msg, null, null);
+    // construct a join message from the text in the debug field
+    SecurityCommandBuffer scb = new SecurityCommandBuffer();
+    scb.Uuid = textField.Text;
+    scb.Type = SecurityCommandBuffer.SecurityCommandBufferType.Join;
 
-    // this should work but there's something weird and it blows up the 
-    // connection
-    //commandInSender.Send(msg);
-  }
-
-  // Called when the node enters the scene tree for the first time.
-  public override void _Ready()
-  {
-    // initialize the logging configuration
-    Node gdlogger = GetNode<Node>("/root/GDLogger");
-    gdlogger.Call("load_config", "res://logger.cfg");
-    cslogger = GetNode<CSLogger>("/root/CSLogger");
-
-    cslogger.Info("Space Ring Things (SRT) Game Server");
-    InitializeAMQP();
-
-    cslogger.Info("Beginning game server");
-    // TODO: output the current config
+    CommandBuffer cb = new CommandBuffer();
+    cb.Type = CommandBuffer.CommandBufferType.Security;
+    cb.securityCommandBuffer = scb;
+    MessageInterface.SendCommand(cb);
   }
 
   // Called every frame. 'delta' is the elapsed time since the previous frame.
