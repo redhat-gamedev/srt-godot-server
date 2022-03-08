@@ -94,7 +94,28 @@ public class Player : KinematicBody2D
     playerIDLabel.Text = uuid;
   }
 
-  // Called every frame. 'delta' is the elapsed time since the previous frame.
+  public void TakeDamage(int Damage)
+  {
+    cslogger.Debug($"Player.cs: {uuid}: Taking damage: {Damage}");
+    HitPoints -= Damage;
+    cslogger.Debug($"Player.cs: {uuid}: Hitpoints: {HitPoints}");
+  }
+
+  void RemovePlayer()
+  {
+    cslogger.Verbose($"Player.cs: removing {uuid}");
+    Server theServer = (Server)GetNode("/root/Server");
+    theServer.RemovePlayer(uuid);
+  }
+
+  public override void _Process(float delta)
+  {
+    if (HitPoints <= 0)
+    {
+      cslogger.Debug("Hitpoints zeroed! Remove the player!");
+      RemovePlayer();
+    }
+  }
   public override void _PhysicsProcess(float delta)
   {
     // somewhat based on: https://kidscancode.org/godot_recipes/2d/topdown_movement/

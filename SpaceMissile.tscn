@@ -12,7 +12,6 @@ script = ExtResource( 2 )
 __meta__ = {
 "_edit_horizontal_guides_": [  ]
 }
-MissileSpeed = 50
 
 [node name="Sprite" type="Sprite" parent="."]
 scale = Vector2( 0.1, 0.1 )

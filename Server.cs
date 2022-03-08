@@ -32,6 +32,16 @@ public class Server : Node
   [Export]
   Dictionary<String, Player> playerObjects = new Dictionary<string, Player>();
 
+  public void RemovePlayer(String UUID)
+  {
+    cslogger.Debug($"Server.cs: Removing player: {UUID}");
+    Player thePlayerToRemove = playerObjects[UUID];
+
+    // TODO: should this get wrapped with a try or something?
+    thePlayerToRemove.QueueFree();
+    playerObjects.Remove(UUID);
+  }
+
   void InstantiatePlayer(String UUID)
   {
     PackedScene playerScene = (PackedScene)ResourceLoader.Load("res://Player.tscn");

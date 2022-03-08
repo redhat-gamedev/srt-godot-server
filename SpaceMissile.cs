@@ -63,6 +63,6 @@ public class SpaceMissile : Area2D
     cslogger.Debug("Evaluating hit!");
     QueueFree();
     MyPlayer.ExpireMissile();
-    HitPlayer.HitPoints -= MissileDamage;
+    HitPlayer.TakeDamage(MissileDamage);
   }
 }
