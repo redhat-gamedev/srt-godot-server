@@ -136,6 +136,7 @@ message PbBody {
   required PbBodyType type = 2;
   
   // physical attributes
+  optional float absolute_velocity = 9;
   optional PbVec2 position = 10;
   optional float angle = 11;
   optional PbVec2 linear_velocity = 12;
