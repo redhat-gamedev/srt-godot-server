@@ -135,6 +135,10 @@ public class Server : Node
     // fetch the UUID from the text field to use in the message
     LineEdit textField = GetNode<LineEdit>("PlayerID");
 
+    // if there is no player in the dictionary, do nothing
+    // this catches accidental keyboard hits
+    if (!playerObjects.ContainsKey(textField.Text)) { return; }
+
     // there was some kind of input, so construct a message to send to the server
     CommandBuffer cb = new CommandBuffer();
     cb.Type = CommandBuffer.CommandBufferType.Rawinput;
