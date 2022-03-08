@@ -53,6 +53,8 @@ public class Player : KinematicBody2D
     PackedScene missileScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
     MyMissile = (SpaceMissile)missileScene.Instance();
 
+    MyMissile.uuid = Guid.NewGuid().ToString();
+
     // missile should point in the same direction as the ship
     MyMissile.Rotation = Rotation;
     
@@ -160,6 +162,8 @@ public class Player : KinematicBody2D
     Vector2 velocity =  -(Transform.y * CurrentVelocity);
     cslogger.Verbose($"UUID: {uuid} Vector X: {velocity.x} Y: {velocity.y} ");
     Rotation += rotation_dir * RotationThrust * delta;
+
+    // TODO: implement collision mechanics
     MoveAndCollide(velocity);
   }
 
