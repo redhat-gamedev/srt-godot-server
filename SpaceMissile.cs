@@ -53,7 +53,19 @@ public class SpaceMissile : Area2D
   void _onSpaceMissileBodyEntered(Node body)
   {
     cslogger.Debug("Body entered!");
+
+    if (body.GetType().Name != "Player")
+    {
+      // We didn't hit another player, so remove ourselves, expire the missile, and return
+      // TODO: may want to decide to do something fancy here
+      QueueFree();
+      MyPlayer.ExpireMissile();
+      return;
+    }
+
+    // We hit another Player, so proceed
     EmitSignal("Hit", (Player)body);
+
     // Must be deferred as we can't change physics properties on a physics callback.
     GetNode<CollisionShape2D>("CollisionShape2D").SetDeferred("disabled", true);
   }
