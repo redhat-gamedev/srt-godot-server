@@ -508,6 +508,16 @@ namespace Box2d
         [global::ProtoBuf.ProtoMember(2, Name = @"type", IsRequired = true)]
         public PbBodyType Type { get; set; }
 
+        [global::ProtoBuf.ProtoMember(9, Name = @"absolute_velocity")]
+        public float AbsoluteVelocity
+        {
+            get => __pbn__AbsoluteVelocity.GetValueOrDefault();
+            set => __pbn__AbsoluteVelocity = value;
+        }
+        public bool ShouldSerializeAbsoluteVelocity() => __pbn__AbsoluteVelocity != null;
+        public void ResetAbsoluteVelocity() => __pbn__AbsoluteVelocity = null;
+        private float? __pbn__AbsoluteVelocity;
+
         [global::ProtoBuf.ProtoMember(10, Name = @"position")]
         public PbVec2 Position { get; set; }
 

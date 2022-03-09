@@ -20,20 +20,23 @@ namespace redhatgamedev.srt
         public EntityGameEventBufferType Type { get; set; } = EntityGameEventBufferType.Unknown;
 
         [global::ProtoBuf.ProtoMember(2, IsRequired = true)]
-        public ulong entityTag { get; set; }
+        public EntityGameEventBufferObjectType objectType { get; set; } = EntityGameEventBufferObjectType.Unknown;
 
-        [global::ProtoBuf.ProtoMember(3, Name = @"UUID")]
+        [global::ProtoBuf.ProtoMember(3, Name = @"UUID", IsRequired = true)]
+        public string Uuid { get; set; }
+
+        [global::ProtoBuf.ProtoMember(4)]
         [global::System.ComponentModel.DefaultValue("")]
-        public string Uuid
+        public string ownerUUID
         {
-            get => __pbn__Uuid ?? "";
-            set => __pbn__Uuid = value;
+            get => __pbn__ownerUUID ?? "";
+            set => __pbn__ownerUUID = value;
         }
-        public bool ShouldSerializeUuid() => __pbn__Uuid != null;
-        public void ResetUuid() => __pbn__Uuid = null;
-        private string __pbn__Uuid;
+        public bool ShouldSerializeownerUUID() => __pbn__ownerUUID != null;
+        public void ResetownerUUID() => __pbn__ownerUUID = null;
+        private string __pbn__ownerUUID;
 
-        [global::ProtoBuf.ProtoMember(4, Name = @"body")]
+        [global::ProtoBuf.ProtoMember(5, Name = @"body")]
         public global::Box2d.PbBody Body { get; set; }
 
         [global::ProtoBuf.ProtoContract()]
@@ -49,6 +52,17 @@ namespace redhatgamedev.srt
             Update = 3,
             [global::ProtoBuf.ProtoEnum(Name = @"DESTROY")]
             Destroy = 4,
+        }
+
+        [global::ProtoBuf.ProtoContract()]
+        public enum EntityGameEventBufferObjectType
+        {
+            [global::ProtoBuf.ProtoEnum(Name = @"UNKNOWN")]
+            Unknown = 0,
+            [global::ProtoBuf.ProtoEnum(Name = @"PLAYER")]
+            Player = 1,
+            [global::ProtoBuf.ProtoEnum(Name = @"MISSILE")]
+            Missile = 2,
         }
 
     }

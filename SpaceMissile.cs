@@ -13,6 +13,8 @@ public class SpaceMissile : Area2D
 
   public Player MyPlayer;
 
+  public String uuid;
+
   [Signal]
   public delegate void Hit(Player HitPlayer);
 

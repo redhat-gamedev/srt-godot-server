@@ -12,6 +12,22 @@ public class Server : Node
   [Export]
   Dictionary<String, Player> playerObjects = new Dictionary<string, Player>();
 
+  void SendGameUpdates()
+  {
+    cslogger.Verbose("Server.cs: Sending updates about game state to clients");
+
+    foreach(KeyValuePair<String, Player> entry in playerObjects)
+    {
+      cslogger.Verbose($"Server.cs: Sending update for player: {entry.Key}");
+      // each Value is a Player object
+      // create the buffer for the specific player and send it
+      EntityGameEventBuffer egeb = entry.Value.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update);
+
+      // send the player create event message
+      MessageInterface.SendGameEvent(egeb);
+    }
+  }
+
   public void RemovePlayer(String UUID)
   {
     cslogger.Debug($"Server.cs: Removing player: {UUID}");
@@ -20,6 +36,8 @@ public class Server : Node
     // TODO: should this get wrapped with a try or something?
     thePlayerToRemove.QueueFree();
     playerObjects.Remove(UUID);
+
+    // TODO: probably need to leave player
   }
 
   void InstantiatePlayer(String UUID)
@@ -48,12 +66,18 @@ public class Server : Node
                                 y: minY + yOffset);
 
     AddChild(newPlayer);
-    cslogger.Debug("Added player instance!");
+    cslogger.Debug("Server.cs: Added player instance!");
+
+    // create the protobuf for the player joining
+    EntityGameEventBuffer egeb = newPlayer.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Create);
+
+    // send the player create event message
+    MessageInterface.SendGameEvent(egeb);
   }
 
   void ProcessMoveCommand(CommandBuffer cb)
   {
-    cslogger.Verbose("Processing move command!");
+    cslogger.Verbose("Server.cs: Processing move command!");
     DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
     String uuid = cb.rawInputCommandBuffer.Uuid;
@@ -68,7 +92,7 @@ public class Server : Node
 
   void ProcessShootCommand(CommandBuffer cb)
   {
-    cslogger.Debug("Processing shoot command!");
+    cslogger.Debug("Server.cs: Processing shoot command!");
     DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
     String uuid = cb.rawInputCommandBuffer.Uuid;
@@ -79,15 +103,15 @@ public class Server : Node
 
   void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer)
   {
-    cslogger.Verbose("Processing security command buffer!");
+    cslogger.Verbose("Server.cs: Processing security command buffer!");
     switch (securityCommandBuffer.Type)
     {
       case SecurityCommandBuffer.SecurityCommandBufferType.Join:
-        cslogger.Info($"Join UUID: {securityCommandBuffer.Uuid}");
+        cslogger.Info($"Server.cs: Join UUID: {securityCommandBuffer.Uuid}");
         InstantiatePlayer(securityCommandBuffer.Uuid);
         break;
       case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
-        cslogger.Info($"Leave UUID: {securityCommandBuffer.Uuid}");
+        cslogger.Info($"Server.cs: Leave UUID: {securityCommandBuffer.Uuid}");
         break;
     }
   }
@@ -97,7 +121,7 @@ public class Server : Node
     switch (CommandBuffer.Type)
     {
       case CommandBuffer.CommandBufferType.Security:
-        cslogger.Verbose("Security event!");
+        cslogger.Verbose("Server.cs: Security event!");
         ProcessSecurityGameEvent(CommandBuffer.securityCommandBuffer);
         break;
       case CommandBuffer.CommandBufferType.Rawinput:
@@ -179,7 +203,7 @@ public class Server : Node
     // don't do anything if this UUID already exists
     if (playerObjects.ContainsKey(textField.Text)) { return; }
 
-    cslogger.Debug($"Sending join with UUID: {textField.Text}");
+    cslogger.Debug($"Server.cs: Sending join with UUID: {textField.Text}");
 
     // construct a join message from the text in the debug field
     SecurityCommandBuffer scb = new SecurityCommandBuffer();
@@ -232,5 +256,7 @@ public class Server : Node
     {
       ProcessInputEvent(velocity, shoot);
     }
+
+    SendGameUpdates();
   }
 }

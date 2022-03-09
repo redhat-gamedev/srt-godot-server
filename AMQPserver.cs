@@ -31,7 +31,7 @@ public class AMQPserver : Node
   // for the server we're interfaced with
   Server MyServer;
 
-  void GameEventReceived(IReceiverLink receiver, Message message)
+  void CommandReceived(IReceiverLink receiver, Message message)
   {
     cslogger.Verbose("Event received!");
     // accept the message so that it gets removed from the queue
@@ -48,9 +48,30 @@ public class AMQPserver : Node
     MyServer.ProcessGameEvent(commandBuffer);
   }
 
+  public void SendGameEvent(EntityGameEventBuffer egeb)
+  {
+    cslogger.Verbose("AMQPserver.cs: Sending game event");
+    // serialize it into a byte stream
+    MemoryStream st = new MemoryStream();
+    Serializer.Serialize<EntityGameEventBuffer>(st, egeb);
+
+    byte[] msgBytes = st.ToArray();
+
+    Message msg = new Message(msgBytes);
+
+    // don't care about the ack on our message being received
+    gameEventOutSender.Send(msg, null, null);
+
+    // this should work but there's something weird and it blows up the 
+    // connection
+    //gameEventOutSender.Send(msg);
+  }
+
   // only used for debug
   public void SendCommand(CommandBuffer CommandBuffer)
   {
+    cslogger.Verbose("AMQPServer.cs: Sending command");
+
     // serialize it into a byte stream
     MemoryStream st = new MemoryStream();
     Serializer.Serialize<CommandBuffer>(st, CommandBuffer);
@@ -104,7 +125,7 @@ public class AMQPserver : Node
       Capabilities = new Symbol[] { new Symbol("queue") }
     };
     commandInReceiver = new ReceiverLink(amqpSession, "srt-game-server-receiver", commandInSource, null);
-    commandInReceiver.Start(10, GameEventReceived);
+    commandInReceiver.Start(10, CommandReceived);
 
     Target commandInTarget = new Target
     {

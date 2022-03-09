@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections;
+using redhatgamedev.srt;
 
 public class Player : KinematicBody2D
 {
@@ -43,6 +44,30 @@ public class Player : KinematicBody2D
   [Export]
   int MissileDamage = 25;
 
+  public EntityGameEventBuffer CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType BufferType)
+  {
+    EntityGameEventBuffer egeb = new EntityGameEventBuffer();
+    egeb.Type = BufferType;
+    egeb.objectType = EntityGameEventBuffer.EntityGameEventBufferObjectType.Player;
+    egeb.Uuid = uuid;
+
+    Box2d.PbBody body = new Box2d.PbBody();
+    body.Type = Box2d.PbBodyType.Kinematic; // not sure if this should maybe be static
+
+    // there will only be a position when the player is initiated
+    body.Position = new Box2d.PbVec2 
+      { 
+        X = Position.x,
+        Y = Position.y
+      };
+
+    body.Angle = RotationDegrees;
+    body.AbsoluteVelocity = CurrentVelocity;
+
+    egeb.Body = body;
+    return egeb;
+  }
+
   public void ExpireMissile() { MyMissile = null; }
 
   public void FireMissile()
@@ -52,6 +77,8 @@ public class Player : KinematicBody2D
 
     PackedScene missileScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
     MyMissile = (SpaceMissile)missileScene.Instance();
+
+    MyMissile.uuid = Guid.NewGuid().ToString();
 
     // missile should point in the same direction as the ship
     MyMissile.Rotation = Rotation;
@@ -74,6 +101,9 @@ public class Player : KinematicBody2D
 
     // this is a poop way to do this
     MyMissile.MyPlayer = this;
+
+    // put the missile into the missiles group so we can send updates about it later
+    MyMissile.AddToGroup("missiles");
 
     Node rootNode = GetNode<Node>("/root");
     rootNode.AddChild(MyMissile);
@@ -160,6 +190,8 @@ public class Player : KinematicBody2D
     Vector2 velocity =  -(Transform.y * CurrentVelocity);
     cslogger.Verbose($"UUID: {uuid} Vector X: {velocity.x} Y: {velocity.y} ");
     Rotation += rotation_dir * RotationThrust * delta;
+
+    // TODO: implement collision mechanics
     MoveAndCollide(velocity);
   }
 
