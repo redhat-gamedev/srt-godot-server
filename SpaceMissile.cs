@@ -11,12 +11,12 @@ public class SpaceMissile : Area2D
 
   public int MissileDamage;
 
-  public Player MyPlayer;
+  public PlayerShip MyPlayer;
 
   public String uuid;
 
   [Signal]
-  public delegate void Hit(Player HitPlayer);
+  public delegate void Hit(PlayerShip HitPlayer);
 
   // Called when the node enters the scene tree for the first time.
   public override void _Ready() 
@@ -54,9 +54,9 @@ public class SpaceMissile : Area2D
 
   void _onSpaceMissileBodyEntered(Node body)
   {
-    cslogger.Debug("Body entered!");
+    cslogger.Debug("SpaceMissile.cs: Body entered!");
 
-    if (body.GetType().Name != "Player")
+    if (body.GetType().Name != "PlayerShip")
     {
       // We didn't hit another player, so remove ourselves, expire the missile, and return
       // TODO: may want to decide to do something fancy here
@@ -66,15 +66,15 @@ public class SpaceMissile : Area2D
     }
 
     // We hit another Player, so proceed
-    EmitSignal("Hit", (Player)body);
+    EmitSignal("Hit", (PlayerShip)body);
 
     // Must be deferred as we can't change physics properties on a physics callback.
     GetNode<CollisionShape2D>("CollisionShape2D").SetDeferred("disabled", true);
   }
 
-  void _HandleHit(Player HitPlayer)
+  void _HandleHit(PlayerShip HitPlayer)
   {
-    cslogger.Debug("Evaluating hit!");
+    cslogger.Debug("SpaceMissile.cs: Evaluating hit!");
     QueueFree();
     MyPlayer.ExpireMissile();
     HitPlayer.TakeDamage(MissileDamage);

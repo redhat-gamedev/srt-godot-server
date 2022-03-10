@@ -12,7 +12,6 @@ config_version=4
 
 config/name="srt-godot-test"
 run/main_scene="res://Server.tscn"
-run/frame_delay_msec=500
 
 [autoload]
 
