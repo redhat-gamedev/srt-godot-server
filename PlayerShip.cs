@@ -3,7 +3,7 @@ using System;
 using System.Collections;
 using redhatgamedev.srt;
 
-public class Player : KinematicBody2D
+public class PlayerShip : KinematicBody2D
 {
   [Export]
   public float Thrust = 1f; // effective acceleration
@@ -54,11 +54,12 @@ public class Player : KinematicBody2D
     Box2d.PbBody body = new Box2d.PbBody();
     body.Type = Box2d.PbBodyType.Kinematic; // not sure if this should maybe be static
 
-    // there will only be a position when the player is initiated
+    // need to use the GlobalPosition because the ship node ends up being offset
+    // from the parent Node2D
     body.Position = new Box2d.PbVec2 
       { 
-        X = Position.x,
-        Y = Position.y
+        X = GlobalPosition.x,
+        Y = GlobalPosition.y
       };
 
     body.Angle = RotationDegrees;
@@ -85,7 +86,7 @@ public class Player : KinematicBody2D
     
     // TODO: need to offset this to the front of the ship
     // start at our position
-    MyMissile.Position = Position;
+    MyMissile.Position = GlobalPosition;
 
     // negative direction is "up"
     Vector2 offset = new Vector2(0, -100);
@@ -118,7 +119,8 @@ public class Player : KinematicBody2D
     gdlogger.Call("load_config", "res://logger.cfg");
     cslogger = GetNode<CSLogger>("/root/CSLogger");
 
-    Label playerIDLabel = (Label)GetNode("IDLabel");
+    Node2D shipThing = (Node2D)GetParent();
+    Label playerIDLabel = (Label)shipThing.GetNode("Stat/IDLabel");
 
     // TODO: deal with really long UUIDs
     playerIDLabel.Text = uuid;
@@ -151,11 +153,16 @@ public class Player : KinematicBody2D
     // somewhat based on: https://kidscancode.org/godot_recipes/2d/topdown_movement/
     // "rotate and move" / asteroids-style-ish
 
-    Label angularVelocityLabel = (Label)GetNode("AngularVelocity");
-    Label linearVelocityLabel = (Label)GetNode("LinearVelocity");
+    Node2D shipThing = (Node2D)GetParent();
 
-    angularVelocityLabel.Text = $"Ang: {CurrentRotation}";
-    linearVelocityLabel.Text = $"Lin: {CurrentVelocity}";
+    // TODO: we are doing instant rotation so probably should rename this
+    Label angularVelocityLabel = (Label)shipThing.GetNode("Stat/AngularVelocity");
+    Label linearVelocityLabel = (Label)shipThing.GetNode("Stat/LinearVelocity");
+    Label hitPointsLabel = (Label)shipThing.GetNode("Stat/HitPoints");
+
+    angularVelocityLabel.Text = $"Rot: {RotationDegrees}";
+    linearVelocityLabel.Text = $"Vel: {CurrentVelocity}";
+    hitPointsLabel.Text = $"HP: {HitPoints}";
 
     float rotation_dir = 0; // in case we need it
 

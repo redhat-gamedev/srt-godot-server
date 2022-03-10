@@ -10,18 +10,21 @@ public class Server : Node
   AMQPserver MessageInterface;
 
   [Export]
-  Dictionary<String, Player> playerObjects = new Dictionary<string, Player>();
+  Dictionary<String, Node2D> playerObjects = new Dictionary<string, Node2D>();
 
   void SendGameUpdates()
   {
     cslogger.Verbose("Server.cs: Sending updates about game state to clients");
 
-    foreach(KeyValuePair<String, Player> entry in playerObjects)
+    foreach(KeyValuePair<String, Node2D> entry in playerObjects)
     {
       cslogger.Verbose($"Server.cs: Sending update for player: {entry.Key}");
-      // each Value is a Player object
+
+      // find the PlayerShip
+      PlayerShip thePlayer = entry.Value.GetNode<PlayerShip>("PlayerShip");
+
       // create the buffer for the specific player and send it
-      EntityGameEventBuffer egeb = entry.Value.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update);
+      EntityGameEventBuffer egeb = thePlayer.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update);
 
       // send the player create event message
       MessageInterface.SendGameEvent(egeb);
@@ -31,7 +34,7 @@ public class Server : Node
   public void RemovePlayer(String UUID)
   {
     cslogger.Debug($"Server.cs: Removing player: {UUID}");
-    Player thePlayerToRemove = playerObjects[UUID];
+    Node2D thePlayerToRemove = playerObjects[UUID];
 
     // TODO: should this get wrapped with a try or something?
     thePlayerToRemove.QueueFree();
@@ -42,11 +45,13 @@ public class Server : Node
 
   void InstantiatePlayer(String UUID)
   {
-    PackedScene playerScene = (PackedScene)ResourceLoader.Load("res://Player.tscn");
-    Player newPlayer = (Player)playerScene.Instance();
+    PackedScene playerShipThing = (PackedScene)ResourceLoader.Load("res://Player.tscn");
+    Node2D playerShipThingInstance = (Node2D)playerShipThing.Instance();
+
+    PlayerShip newPlayer = playerShipThingInstance.GetNode<PlayerShip>("PlayerShip");
     newPlayer.uuid = UUID;
 
-    playerObjects.Add(UUID, newPlayer);
+    playerObjects.Add(UUID, playerShipThingInstance);
 
     // figure out the current screen size
     // TODO: this isn't going to work in the future, I don't think
@@ -62,10 +67,10 @@ public class Server : Node
     int xOffset = rnd.Next(0, minX * 2);
     int yOffset = rnd.Next(0, minY * 2);
 
-    newPlayer.Position = new Vector2(x: minX + xOffset,
+    playerShipThingInstance.Position = new Vector2(x: minX + xOffset,
                                 y: minY + yOffset);
 
-    AddChild(newPlayer);
+    AddChild(playerShipThingInstance);
     cslogger.Debug("Server.cs: Added player instance!");
 
     // create the protobuf for the player joining
@@ -81,7 +86,10 @@ public class Server : Node
     DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
     String uuid = cb.rawInputCommandBuffer.Uuid;
-    Player movePlayer = playerObjects[uuid];
+    Node2D playerRoot = playerObjects[uuid];
+
+    // find the PlayerShip
+    PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
 
     // process thrust and rotation
     Vector2 thrust = new Vector2(dsricb.pbv2Move.X, dsricb.pbv2Move.Y);
@@ -96,7 +104,10 @@ public class Server : Node
     DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
     String uuid = cb.rawInputCommandBuffer.Uuid;
-    Player movePlayer = playerObjects[uuid];
+    Node2D playerRoot = playerObjects[uuid];
+
+    // find the PlayerShip
+    PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
 
     movePlayer.FireMissile();
   }
