@@ -35,12 +35,18 @@ public class Server : Node
   {
     cslogger.Debug($"Server.cs: Removing player: {UUID}");
     Node2D thePlayerToRemove = playerObjects[UUID];
+    PlayerShip thePlayer = thePlayerToRemove.GetNode<PlayerShip>("PlayerShip");
 
     // TODO: should this get wrapped with a try or something?
     thePlayerToRemove.QueueFree();
     playerObjects.Remove(UUID);
 
-    // TODO: probably need to leave player
+    // create the buffer for the specific player and send it
+    EntityGameEventBuffer egeb = thePlayer.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Destroy);
+
+    // send the player create event message
+    MessageInterface.SendGameEvent(egeb);
+    
   }
 
   void InstantiatePlayer(String UUID)
