@@ -12,7 +12,10 @@ public class PlayerShip : KinematicBody2D
   public float MaxSpeed = 5;
 
   [Export]
-  public float StopThreshold = 0.5f;
+  public float StopThreshold = 10f;
+
+  [Export]
+  public float GoThreshold = 90f;
   
   [Export]
   public float CurrentVelocity = 0;
@@ -177,6 +180,9 @@ public class PlayerShip : KinematicBody2D
       if (thisMovement.y > 0)
       {
         CurrentVelocity = Mathf.Lerp(CurrentVelocity, MaxSpeed, Thrust * delta);
+
+        // max out speed when velocity gets above threshold for same reason
+        if (CurrentVelocity > MaxSpeed * (GoThreshold/100)) { CurrentVelocity = MaxSpeed; }
       }
 
       if (thisMovement.y < 0)
@@ -185,7 +191,7 @@ public class PlayerShip : KinematicBody2D
 
         // cut speed when velocity gets below threshold, otherwise LERPing
         // results in never actually stopping. 
-        if (CurrentVelocity < StopThreshold) { CurrentVelocity = 0; }
+        if (CurrentVelocity < MaxSpeed * (StopThreshold/100)) { CurrentVelocity = 0; }
       }
 
       if (thisMovement.x != 0)
