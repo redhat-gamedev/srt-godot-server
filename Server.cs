@@ -174,7 +174,8 @@ public class Server : Node
   void ProcessInputEvent(Vector2 velocity, Vector2 shoot)
   {
     // fetch the UUID from the text field to use in the message
-    LineEdit textField = GetNode<LineEdit>("PlayerID");
+    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
+    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
 
     // if there is no player in the dictionary, do nothing
     // this catches accidental keyboard hits
@@ -215,7 +216,8 @@ public class Server : Node
   // TODO: should move debug to its own scene that's optionally loaded
   void _on_JoinAPlayer_pressed()
   {
-    LineEdit textField = GetNode<LineEdit>("PlayerID");
+    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
+    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
 
     // don't do anything if this UUID already exists
     if (playerObjects.ContainsKey(textField.Text)) { return; }
@@ -237,8 +239,15 @@ public class Server : Node
   public override void _Process(float delta)
   {
 
-    // TODO: should probably have some exception fire if we don't connect to
-    // AMQ within an appropriate period of time, or get disconnected, etc.
+    // get the UUID of the text box and set that ship's camera to active
+    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
+    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
+    if (playerObjects.ContainsKey(textField.Text)) 
+    { 
+      Node2D playerForCamera = playerObjects[textField.Text];
+      Camera2D playerCamera = playerForCamera.GetNode<Camera2D>("PlayerShip/Camera2D");
+      if (!playerCamera.Current) { playerCamera.MakeCurrent(); }
+    }
 
     // look for any inputs, subsequently sent a control message
     var velocity = Vector2.Zero; // The player's movement direction.
