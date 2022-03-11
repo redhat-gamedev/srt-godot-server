@@ -5,7 +5,9 @@
 [node name="Server" type="Node"]
 script = ExtResource( 1 )
 
-[node name="JoinAPlayer" type="Button" parent="."]
+[node name="DebugUI" type="CanvasLayer" parent="."]
+
+[node name="JoinAPlayer" type="Button" parent="DebugUI"]
 margin_left = 6.0
 margin_top = 45.0
 margin_right = 171.0
@@ -15,7 +17,7 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[node name="PlayerID" type="LineEdit" parent="."]
+[node name="PlayerID" type="LineEdit" parent="DebugUI"]
 margin_left = 8.0
 margin_top = 12.0
 margin_right = 168.0
@@ -24,4 +26,4 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[connection signal="pressed" from="JoinAPlayer" to="." method="_on_JoinAPlayer_pressed"]
+[connection signal="pressed" from="DebugUI/JoinAPlayer" to="." method="_on_JoinAPlayer_pressed"]

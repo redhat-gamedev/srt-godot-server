@@ -65,3 +65,5 @@ polygon = PoolVector2Array( -5, -31, 5, -31, 11, -10, 16, 5, 26, 10, 29, 28, -17
 [node name="RemoteTransform2D" type="RemoteTransform2D" parent="PlayerShip"]
 remote_path = NodePath("../../Stat")
 update_rotation = false
+
+[node name="Camera2D" type="Camera2D" parent="PlayerShip"]
