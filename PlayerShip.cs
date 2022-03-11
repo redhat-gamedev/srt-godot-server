@@ -159,10 +159,12 @@ public class PlayerShip : KinematicBody2D
     Label angularVelocityLabel = (Label)shipThing.GetNode("Stat/AngularVelocity");
     Label linearVelocityLabel = (Label)shipThing.GetNode("Stat/LinearVelocity");
     Label hitPointsLabel = (Label)shipThing.GetNode("Stat/HitPoints");
+    Label positionLabel = (Label)shipThing.GetNode("Stat/Position");
 
     angularVelocityLabel.Text = $"Rot: {RotationDegrees}";
     linearVelocityLabel.Text = $"Vel: {CurrentVelocity}";
     hitPointsLabel.Text = $"HP: {HitPoints}";
+    positionLabel.Text = $"X: {GlobalPosition.x} Y: {GlobalPosition.y}";
 
     float rotation_dir = 0; // in case we need it
 
@@ -200,6 +202,16 @@ public class PlayerShip : KinematicBody2D
 
     // TODO: implement collision mechanics
     MoveAndCollide(velocity);
+
+    // clamp the player to the starfield radius
+    Server theServer = GetNode<Server>("/root/Server");
+    Int32 starFieldRadiusPixels = theServer.StarFieldRadiusPixels;
+    Vector2 currentGlobalPosition = GlobalPosition;
+    if (currentGlobalPosition.Length() > starFieldRadiusPixels)
+    {
+      Vector2 newPosition = starFieldRadiusPixels * currentGlobalPosition.Normalized();
+      GlobalPosition = newPosition;
+    }
   }
 
 }

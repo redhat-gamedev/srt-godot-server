@@ -12,6 +12,9 @@ public class Server : Node
   [Export]
   Dictionary<String, Node2D> playerObjects = new Dictionary<string, Node2D>();
 
+  [Export]
+  public Int32 StarFieldRadiusPixels = 16000;
+
   void SendGameUpdates()
   {
     cslogger.Verbose("Server.cs: Sending updates about game state to clients");

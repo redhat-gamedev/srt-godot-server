@@ -52,6 +52,17 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
+[node name="Position" type="Label" parent="Stat"]
+margin_left = -33.0
+margin_top = 81.0
+margin_right = 33.0
+margin_bottom = 95.0
+text = "Position"
+align = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
 [node name="PlayerShip" type="KinematicBody2D" parent="."]
 script = ExtResource( 2 )
 
