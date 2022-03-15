@@ -14,6 +14,17 @@ public class Server : Node
 
   [Export]
   public Int32 StarFieldRadiusPixels = 16000;
+  
+  [Export]
+  float CameraMinZoom = 4f;
+
+  [Export]
+  float CameraMaxZoom = 0.1f;
+
+  [Export]
+  float CameraZoomStepSize = 0.1f;
+
+  Vector2 CameraCurrentZoom = new Vector2(1,1);
 
   void SendGameUpdates()
   {
@@ -238,10 +249,46 @@ public class Server : Node
     MessageInterface.SendCommand(cb);
   }
 
+  public override void _UnhandledInput(InputEvent @event)
+  {
+
+    // hop out if we don't have a player to zoom in on
+    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
+    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
+    if (!playerObjects.ContainsKey(textField.Text)) { return; }
+
+    // grab the camera and zoom it by zoom factor
+    Node2D playerForCamera = playerObjects[textField.Text];
+    Camera2D playerCamera = playerForCamera.GetNode<Camera2D>("PlayerShip/Camera2D");
+
+    if (@event.IsActionPressed("zoom_in"))
+    { 
+      cslogger.Debug("Server.cs: zoom viewport in!");
+      float zoomN = CameraCurrentZoom.x - CameraZoomStepSize;
+      zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
+      CameraCurrentZoom.x = zoomN;
+      CameraCurrentZoom.y = zoomN;
+      playerCamera.Zoom = CameraCurrentZoom;
+      cslogger.Debug($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
+    }
+
+    if (@event.IsActionPressed("zoom_out"))
+    {
+      cslogger.Debug("Server.cs zoom viewport out!");
+      float zoomN = CameraCurrentZoom.x + CameraZoomStepSize;
+      zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
+      CameraCurrentZoom.x = zoomN;
+      CameraCurrentZoom.y = zoomN;
+      playerCamera.Zoom = CameraCurrentZoom;
+      cslogger.Debug($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
+    }
+  }
+
   // Called every frame. 'delta' is the elapsed time since the previous frame.
   public override void _Process(float delta)
   {
 
+    // loosely based on: https://godotengine.org/qa/116981/object-follow-mouse-in-radius
     // get the UUID of the text box and set that ship's camera to active
     CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
     LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
