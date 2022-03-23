@@ -14,6 +14,11 @@ public class Server : Node
 
   [Export]
   public Int32 StarFieldRadiusPixels = 16000;
+
+  [Export]
+  public Int32 SectorSize = 3200;
+
+  public Layout HexLayout;
   
   [Export]
   float CameraMinZoom = 4f;
@@ -181,6 +186,9 @@ public class Server : Node
 
     cslogger.Info("Beginning game server");
     // TODO: output the current config
+
+    // initialize the hexboard layout
+    HexLayout = new Layout(Layout.pointy, new Point(SectorSize,SectorSize), new Point(0,0));
   }
 
 
