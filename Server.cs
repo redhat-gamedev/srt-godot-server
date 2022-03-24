@@ -18,8 +18,9 @@ public class Server : Node
 
   public Layout HexLayout;
 
+  // starting ring radius is zero - just one sector
   [Export]
-  public int RingRadius = 1;
+  public int RingRadius = 0;
 
   // the sector map will only store the number of players in each sector
   // it only gets updated when a new player joins
@@ -28,6 +29,11 @@ public class Server : Node
 
   [Export]
   public Int32 StarFieldRadiusPixels;
+
+  // The starfield's center may shift during play at small ring sizes due to the
+  // way that sectors are added
+  [Export]
+  Vector2 StarFieldCenter = new Vector2(0,0);
   
   [Export]
   float CameraMinZoom = 4f;
@@ -80,6 +86,49 @@ public class Server : Node
     
   }
 
+  Hex TraverseSectors()
+  {
+    Hex theCenter = new Hex(0,0,0);
+
+    // based around the function from
+    // https://www.redblobgames.com/grids/hexagons/#rings
+
+    // need to iterate over all the rings
+    for (int x = 1; x <= RingRadius; x++)
+    {
+      Hex theSector = theCenter.Add( Hex.directions[0].Scale(x) );
+      for (int i = 0; i < 6; i++)
+      {
+        for (int j = 0; j <= RingRadius; j++)
+        {
+          string theKey = $"{theSector.q},{theSector.r}";
+          if (sectorMap.ContainsKey(theKey))
+          { 
+            // the sector map has the sector we're looking at, so verify how many
+            // players are in it. if there are less than two players, use it.
+            if (sectorMap[theKey] < 2) { return theSector; } 
+          }
+          else
+          {
+            // the sector map doesn't have the key for the sector we're looking
+            // at. this means the sector definitely has zero players in it.
+            return theSector;
+          }
+
+          // if we get here, it means that the current sector is full, so move
+          // to the next neighbor
+          theSector = theSector.Neighbor(i);
+        }
+      }
+    }
+
+    // we got to the end of the rings without finding a sector, so make a new
+    // ring and return that ring's first sector
+
+    RingRadius++;
+    return theCenter.Add( Hex.directions[0].Scale(RingRadius) );
+  }
+
   void UpdateSectorMap()
   {
     // re-initilize the sector map
@@ -90,6 +139,8 @@ public class Server : Node
       PlayerShip thePlayer = entry.Value.GetNode<PlayerShip>("PlayerShip");
       FractionalHex theHex = HexLayout.PixelToHex(new Point(thePlayer.GlobalPosition.x, thePlayer.GlobalPosition.y));
       Hex theRoundedHex = theHex.HexRound();
+
+      // the key can be axial coordinates
       String theSectorKey = $"{theRoundedHex.q},{theRoundedHex.r}";
 
       // check if the key exists in the dict
@@ -107,6 +158,16 @@ public class Server : Node
   }
   void InstantiatePlayer(String UUID)
   {
+    // Update the sector map in preparation for traversing the rings, expanding
+    // the radius, and etc.  need to do this before adding the new player object
+    // because we don't know where that player will go until we traverse the
+    // existing sectors, and because the physics process will kick in as soon
+    // as the node is created
+    UpdateSectorMap();
+
+    // start with the center
+    Hex theSector = new Hex(0,0,0);
+
     PackedScene playerShipThing = (PackedScene)ResourceLoader.Load("res://Player.tscn");
     Node2D playerShipThingInstance = (Node2D)playerShipThing.Instance();
 
@@ -115,37 +176,45 @@ public class Server : Node
 
     playerObjects.Add(UUID, playerShipThingInstance);
 
-    UpdateSectorMap();
+    // if there are more than two players, it means we are now at the point
+    // where we have to start calculating ring things
+    if (playerObjects.Count > 2)
+    {
 
-    // check the length of the player objects
-    // if the player objects length is more than two
+      // if the ring radius is zero, and we have more than two players, we need
+      // to increase it, otherwise things will already blow up
+      if (RingRadius == 0) { RingRadius++; }
 
-      // increase the ring radius from 1 to 2, only if it's 1
+      // it's possible that we have insufficient players in sector 0,0,0, so
+      // check that first for funzos
+      if (sectorMap["0,0"] < 2)
+      { 
+        // do nothing since we already assigned the sector to use to 0,0,0
+      }
 
-      // traverse the ring, clockwise starting at the "top" and check if the
-      // sector can take a player
+      else
+      {
+        theSector = TraverseSectors();
+      }
+    }
 
-        // add the player to the sector or continue to traverse clockwise
+    // now that the sector to insert the player has been selected, find its
+    // pixel center
+    Point theSectorCenter = HexLayout.HexToPixel(theSector);
 
-      // if we reach the end of the ring and still have not placed the player,
-      // increase the ring diameter and start over at the top of the next ring
+    // TODO: need to ensure players are not on top of one another for real.  we
+    // will spawn two players into a sector to start, so we should check if
+    // there's already a player in the sector first. if there is, we should
+    // place the new player equidistant from the already present player
 
-    // figure out the current screen size
-    // TODO: this isn't going to work in the future, I don't think
-    Node rootNode = GetNode<Node>("/root");
-    Vector2 ScreenSize = rootNode.GetViewport().Size;
-
-    // TODO: need to ensure players are not on top of one another for real
     // badly randomize start position
-    int minX = (int)(ScreenSize.x / 2 * 0.3);
-    int minY = (int)(ScreenSize.y / 2 * 0.3);
-
+    int theMin = (int)(SectorSize * 0.3);
     Random rnd = new Random();
-    int xOffset = rnd.Next(0, minX * 2);
-    int yOffset = rnd.Next(0, minY * 2);
+    int xOffset = rnd.Next(-1 * theMin, theMin);
+    int yOffset = rnd.Next(-1 * theMin, theMin);
 
-    playerShipThingInstance.Position = new Vector2(x: minX + xOffset,
-                                y: minY + yOffset);
+    playerShipThingInstance.GlobalPosition = new Vector2(x: (Int32)theSectorCenter.x + xOffset,
+                                y: (Int32)theSectorCenter.y + yOffset);
 
     AddChild(playerShipThingInstance);
     cslogger.Debug("Server.cs: Added player instance!");
