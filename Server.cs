@@ -5,6 +5,7 @@ using redhatgamedev.srt;
 
 public class Server : Node
 {
+  Random rnd = new Random();
   CSLogger cslogger;
 
   AMQPserver MessageInterface;
@@ -209,7 +210,6 @@ public class Server : Node
 
     // badly randomize start position
     int theMin = (int)(SectorSize * 0.3);
-    Random rnd = new Random();
     int xOffset = rnd.Next(-1 * theMin, theMin);
     int yOffset = rnd.Next(-1 * theMin, theMin);
 
