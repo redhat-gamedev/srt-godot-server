@@ -97,10 +97,13 @@ public class Server : Node
     // need to iterate over all the rings
     for (int x = 1; x <= RingRadius; x++)
     {
-      Hex theSector = theCenter.Add( Hex.directions[0].Scale(x) );
+      // pick the 0th sector in a ring
+      Hex theSector = theCenter.Add( Hex.directions[4].Scale(x) );
+
+      // traverse the ring
       for (int i = 0; i < 6; i++)
       {
-        for (int j = 0; j <= RingRadius; j++)
+        for (int j = 0; j < RingRadius; j++)
         {
           string theKey = $"{theSector.q},{theSector.r}";
           if (sectorMap.ContainsKey(theKey))
@@ -127,7 +130,7 @@ public class Server : Node
     // ring and return that ring's first sector
 
     RingRadius++;
-    return theCenter.Add( Hex.directions[0].Scale(RingRadius) );
+    return theCenter.Add( Hex.directions[4].Scale(RingRadius) );
   }
 
   void UpdateSectorMap()
@@ -184,7 +187,10 @@ public class Server : Node
 
       // if the ring radius is zero, and we have more than two players, we need
       // to increase it, otherwise things will already blow up
-      if (RingRadius == 0) { RingRadius++; }
+      if (RingRadius == 0) 
+      { 
+        RingRadius++;
+      }
 
       // it's possible that we have insufficient players in sector 0,0,0, so
       // check that first for funzos
@@ -198,6 +204,9 @@ public class Server : Node
         theSector = TraverseSectors();
       }
     }
+
+    // reset the starfield radius - should also move the center
+    StarFieldRadiusPixels = (RingRadius+1) * SectorSize * 2;
 
     // now that the sector to insert the player has been selected, find its
     // pixel center
@@ -265,6 +274,9 @@ public class Server : Node
     {
       case SecurityCommandBuffer.SecurityCommandBufferType.Join:
         cslogger.Info($"Server.cs: Join UUID: {securityCommandBuffer.Uuid}");
+        // TODO: buffer this because sometimes it collides with sending game
+        // updates and an exception is fired because the player collection is
+        // modified during looping over it
         InstantiatePlayer(securityCommandBuffer.Uuid);
         break;
       case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
