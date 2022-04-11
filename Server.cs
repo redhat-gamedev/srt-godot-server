@@ -47,6 +47,8 @@ public class Server : Node
 
   Vector2 CameraCurrentZoom = new Vector2(1,1);
 
+  Queue<SecurityCommandBuffer> PlayerJoinQueue = new Queue<SecurityCommandBuffer>();
+
   void SendGameUpdates()
   {
     cslogger.Verbose("Server.cs: Sending updates about game state to clients");
@@ -277,12 +279,23 @@ public class Server : Node
         // TODO: buffer this because sometimes it collides with sending game
         // updates and an exception is fired because the player collection is
         // modified during looping over it
-        InstantiatePlayer(securityCommandBuffer.Uuid);
+        PlayerJoinQueue.Enqueue(securityCommandBuffer);
         break;
       case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
         cslogger.Info($"Server.cs: Leave UUID: {securityCommandBuffer.Uuid}");
         break;
     }
+  }
+
+  void ProcessPlayerJoins()
+  {
+
+    while (PlayerJoinQueue.Count > 0)
+    {
+      SecurityCommandBuffer scb = PlayerJoinQueue.Dequeue();
+      InstantiatePlayer(scb.Uuid);
+    }
+
   }
 
   public void ProcessGameEvent(CommandBuffer CommandBuffer)
@@ -477,6 +490,8 @@ public class Server : Node
     {
       ProcessInputEvent(velocity, shoot);
     }
+
+    ProcessPlayerJoins();
 
     SendGameUpdates();
   }
