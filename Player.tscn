@@ -63,6 +63,17 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
+[node name="Hex" type="Label" parent="Stat"]
+margin_left = -33.0
+margin_top = 93.0
+margin_right = 33.0
+margin_bottom = 107.0
+text = "MyHex"
+align = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
 [node name="PlayerShip" type="KinematicBody2D" parent="."]
 script = ExtResource( 2 )
 
