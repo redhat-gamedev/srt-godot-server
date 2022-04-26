@@ -6,6 +6,7 @@ using redhatgamedev.srt;
 public class Server : Node
 {
   Random rnd = new Random();
+
   CSLogger cslogger;
 
   AMQPserver MessageInterface;
@@ -48,6 +49,18 @@ public class Server : Node
   Vector2 CameraCurrentZoom = new Vector2(1,1);
 
   Queue<SecurityCommandBuffer> PlayerJoinQueue = new Queue<SecurityCommandBuffer>();
+
+  /* PLAYER DEFAULTS AND CONFIG */
+
+  float PlayerDefaultThrust = 1f;
+  float PlayerDefaultMaxSpeed = 5;
+  float PlayerDefaultRotationThrust = 1.5f;
+  int PlayerDefaultHitPoints = 100;
+  int PlayerDefaultMissileSpeed = 300;
+  float PlayerDefaultMissileLife = 4;
+  int PlayerDefaultMissileDamage = 25;
+
+  /* END PLAYER DEFAULTS AND CONFIG */
 
   void SendGameUpdates()
   {
@@ -179,6 +192,15 @@ public class Server : Node
 
     PlayerShip newPlayer = playerShipThingInstance.GetNode<PlayerShip>("PlayerShip");
     newPlayer.uuid = UUID;
+
+    // assign the configured values
+    newPlayer.Thrust = PlayerDefaultThrust;
+    newPlayer.MaxSpeed = PlayerDefaultMaxSpeed;
+    newPlayer.RotationThrust = PlayerDefaultRotationThrust;
+    newPlayer.HitPoints = PlayerDefaultHitPoints;
+    newPlayer.MissileSpeed = PlayerDefaultMissileSpeed;
+    newPlayer.MissileLife = PlayerDefaultMissileLife;
+    newPlayer.MissileDamage = PlayerDefaultMissileDamage;
 
     playerObjects.Add(UUID, playerShipThingInstance);
 
@@ -318,6 +340,29 @@ public class Server : Node
     }
   }
 
+  public void LoadConfig()
+  {
+    var serverConfig = new ConfigFile();
+    Error err = serverConfig.Load("server.cfg");
+
+    // If the file didn't load, ignore it.
+    if (err != Error.Ok) { return; }
+
+    // server settings
+    SectorSize = (Int32) serverConfig.GetValue("game","sector_size");
+
+    // player settings
+    // https://stackoverflow.com/questions/24447387/cast-object-containing-int-to-float-results-in-invalidcastexception
+    PlayerDefaultThrust = Convert.ToSingle(serverConfig.GetValue("player","thrust"));
+    PlayerDefaultMaxSpeed = Convert.ToSingle(serverConfig.GetValue("player","max_speed"));
+    PlayerDefaultRotationThrust = Convert.ToSingle(serverConfig.GetValue("player","rotation_thrust"));
+    PlayerDefaultHitPoints = (int) serverConfig.GetValue("player","hit_points");
+    PlayerDefaultMissileSpeed = (int) serverConfig.GetValue("player","missile_speed");
+    PlayerDefaultMissileLife = Convert.ToSingle(serverConfig.GetValue("player","missile_life"));
+    PlayerDefaultMissileDamage = (int) serverConfig.GetValue("player","missile_damage");
+
+  }
+
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
@@ -331,6 +376,9 @@ public class Server : Node
     MessageInterface = GetNode<AMQPserver>("/root/AMQPserver");
 
     cslogger.Info("Beginning game server");
+
+    LoadConfig();
+
     // TODO: output the current config
 
     // initialize the starfield size to the initial sector size
@@ -339,6 +387,8 @@ public class Server : Node
 
     // initialize the hexboard layout
     HexLayout = new Layout(Layout.flat, new Point(SectorSize,SectorSize), new Point(0,0));
+
+    //  GetTree().Quit();
   }
 
 
