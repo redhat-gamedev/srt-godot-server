@@ -39,13 +39,13 @@ public class PlayerShip : KinematicBody2D
   SpaceMissile MyMissile = null;
 
   [Export] 
-  int MissileSpeed = 300;
+  public int MissileSpeed = 300;
   
   [Export]
-  float MissileLife = 4;
+  public float MissileLife = 4;
 
   [Export]
-  int MissileDamage = 25;
+  public int MissileDamage = 25;
 
   public EntityGameEventBuffer CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType BufferType)
   {
@@ -217,6 +217,9 @@ public class PlayerShip : KinematicBody2D
 
     // TODO: implement collision mechanics
     MoveAndCollide(velocity);
+
+    // TODO: need to adust the clamp when the starfield is lopsided in the early
+    // game
 
     // clamp the player to the starfield radius
     Int32 starFieldRadiusPixels = theServer.StarFieldRadiusPixels;

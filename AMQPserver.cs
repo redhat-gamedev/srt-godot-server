@@ -136,6 +136,18 @@ public class AMQPserver : Node
 
     cslogger.Debug("Finished initializing AMQP connection");
   }
+
+  public void LoadConfig()
+  {
+    var serverConfig = new ConfigFile();
+    Godot.Error err = serverConfig.Load("server.cfg");
+
+    // If the file didn't load, ignore it.
+    if (err != Godot.Error.Ok) { return; }
+
+    url = (String) serverConfig.GetValue("amqp","server_string");
+  }
+
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
@@ -145,6 +157,7 @@ public class AMQPserver : Node
     cslogger = GetNode<CSLogger>("/root/CSLogger");
 
     MyServer = GetNode<Server>("/root/Server");
+    LoadConfig();
     InitializeAMQP();
   }
 
