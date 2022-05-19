@@ -80,8 +80,16 @@ public class Server : Node
       MessageInterface.SendGameEvent(egeb);
     }
 
-    // TODO: need to send missile updates
-    // TODO: missiles need to be in a group
+    // TODO: we never send a create message for the missile
+    foreach(SpaceMissile missile in GetTree().GetNodesInGroup("missiles"))
+    {
+      cslogger.Verbose($"Server.cs: Processing missile: {missile.uuid}");
+      // create the buffer for the missile
+      EntityGameEventBuffer egeb = missile.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update);
+
+      // send the buffer for the missile
+      MessageInterface.SendGameEvent(egeb);
+    }
   }
 
   public void RemovePlayer(String UUID)
