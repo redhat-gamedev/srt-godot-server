@@ -19,7 +19,7 @@ public class SpaceMissile : Area2D
   [Signal]
   public delegate void Hit(PlayerShip HitPlayer);
 
-  public EntityGameEventBuffer CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType BufferType)
+  public EntityGameEventBuffer CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType BufferType)
   {
     EntityGameEventBuffer egeb = new EntityGameEventBuffer();
     egeb.Type = BufferType;

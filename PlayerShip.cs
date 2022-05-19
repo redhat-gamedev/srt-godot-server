@@ -72,7 +72,13 @@ public class PlayerShip : KinematicBody2D
     return egeb;
   }
 
-  public void ExpireMissile() { MyMissile = null; }
+  public void ExpireMissile() 
+  { 
+    cslogger.Verbose($"Player.cs: removing missile {MyMissile.uuid}");
+    Server theServer = (Server)GetNode("/root/Server");
+    theServer.RemoveMissile(MyMissile);
+    MyMissile = null;
+  }
 
   public void FireMissile()
   {
@@ -138,7 +144,7 @@ public class PlayerShip : KinematicBody2D
 
   void RemovePlayer()
   {
-    cslogger.Verbose($"Player.cs: removing {uuid}");
+    cslogger.Verbose($"Player.cs: removing player: {uuid}");
     Server theServer = (Server)GetNode("/root/Server");
     theServer.RemovePlayer(uuid);
   }

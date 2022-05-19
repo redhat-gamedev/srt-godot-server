@@ -85,13 +85,15 @@ public class Server : Node
     {
       cslogger.Verbose($"Server.cs: Processing missile: {missile.uuid}");
       // create the buffer for the missile
-      EntityGameEventBuffer egeb = missile.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update);
+      EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update);
 
       // send the buffer for the missile
       MessageInterface.SendGameEvent(egeb);
     }
   }
 
+  // called from the player model
+  // should this be handled IN the player model itself?
   public void RemovePlayer(String UUID)
   {
     cslogger.Debug($"Server.cs: Removing player: {UUID}");
@@ -107,7 +109,20 @@ public class Server : Node
 
     // send the player create event message
     MessageInterface.SendGameEvent(egeb);
-    
+  }
+
+  public void RemoveMissile(SpaceMissile missile)
+  {
+    cslogger.Debug($"Server.cs: Removing missile: {missile.uuid}");
+
+    // TODO: should this get wrapped with a try or something?
+    missile.QueueFree();
+
+    // create the buffer for the specific player and send it
+    EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Destroy);
+
+    // send the player create event message
+    MessageInterface.SendGameEvent(egeb);
   }
 
   Hex TraverseSectors()
