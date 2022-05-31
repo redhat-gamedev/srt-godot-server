@@ -5,6 +5,9 @@ using redhatgamedev.srt;
 
 public class Server : Node
 {
+  int DebugUIRefreshTime = 1; // 1000ms = 1sec
+  float DebugUIRefreshTimer = 0;
+
   Random rnd = new Random();
 
   CSLogger cslogger;
@@ -273,7 +276,7 @@ public class Server : Node
                                 y: (Int32)theSectorCenter.y + yOffset);
 
     AddChild(playerShipThingInstance);
-    cslogger.Debug("Server.cs: Added player instance!");
+    cslogger.Info("Server.cs: Added player instance!");
 
     // create the protobuf for the player joining
     EntityGameEventBuffer egeb = newPlayer.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Create);
@@ -416,6 +419,39 @@ public class Server : Node
 
 
   // ****** THINGS RELATED TO DEBUG ******
+
+  void UpdateDebugUI()
+  { 
+    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
+    Tree UIPlayerTree = theCanvas.GetNode<Tree>("CurrentPlayerTree");
+
+    // clear the list and then iterate over all players to rebuild it
+    UIPlayerTree.Clear();
+    TreeItem UIPlayerTreeRoot = UIPlayerTree.CreateItem();
+
+    foreach(KeyValuePair<String, Node2D> entry in playerObjects)
+    {
+      TreeItem player = UIPlayerTree.CreateItem(UIPlayerTreeRoot);
+      player.SetText(0, entry.Key);
+    }
+  }
+
+  // TODO: improve via signal connection passing in the tree as an arg
+  void _on_CurrentPlayerTree_item_selected()
+  {
+    // figure out which tree item was selected
+    cslogger.Debug($"Server.cs: Handling debug UI tree clicked");
+    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
+    Tree UIPlayerTree = theCanvas.GetNode<Tree>("CurrentPlayerTree");
+    TreeItem selected = UIPlayerTree.GetSelected();
+    cslogger.Debug($"Server.cs: Tree item selected: {selected.GetText(0)}");
+
+    // update the debug UI text field to match the selected item
+    // this causes the debug UI to re-focus on the selected item
+    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
+    textField.Text = selected.GetText(0);
+  }
+
   void ProcessInputEvent(Vector2 velocity, Vector2 shoot)
   {
     // fetch the UUID from the text field to use in the message
@@ -567,5 +603,19 @@ public class Server : Node
     ProcessPlayerJoins();
 
     SendGameUpdates();
+
+    // https://gdscript.com/solutions/godot-timing-tutorial/
+    // check if we should update the debug UI, which itself should only be done if 
+    // we are in a graphical mode
+    // TODO: only if in graphical debug mode
+    // TODO: should also probably use timer node
+    DebugUIRefreshTimer += delta;
+    if (DebugUIRefreshTimer >= DebugUIRefreshTime)
+    { 
+      // update the UI tree
+      DebugUIRefreshTimer = 0;
+      cslogger.Verbose($"Server.cs: Updating UI tree");
+      UpdateDebugUI();
+    }
   }
 }
