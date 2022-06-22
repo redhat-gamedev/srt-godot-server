@@ -19,7 +19,7 @@ public class SpaceMissile : Area2D
   [Signal]
   public delegate void Hit(PlayerShip HitPlayer);
 
-  public EntityGameEventBuffer CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType BufferType)
+  public EntityGameEventBuffer CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType BufferType, String OwnerUUID)
   {
     EntityGameEventBuffer egeb = new EntityGameEventBuffer();
     egeb.Type = BufferType;
@@ -41,6 +41,8 @@ public class SpaceMissile : Area2D
     body.AbsoluteVelocity = MissileSpeed;
 
     egeb.Body = body;
+
+    egeb.ownerUUID = OwnerUUID;
     return egeb;
   }
   
