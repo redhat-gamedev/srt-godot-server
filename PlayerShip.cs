@@ -74,7 +74,7 @@ public class PlayerShip : KinematicBody2D
 
   public void ExpireMissile() 
   { 
-    cslogger.Verbose($"Player.cs: removing missile {MyMissile.uuid}");
+    cslogger.Verbose($"Player.cs: removing missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
     Server theServer = (Server)GetNode("/root/Server");
     theServer.RemoveMissile(MyMissile);
     MyMissile = null;
@@ -117,7 +117,11 @@ public class PlayerShip : KinematicBody2D
 
     Node rootNode = GetNode<Node>("/root");
     rootNode.AddChild(MyMissile);
-    cslogger.Debug("Added missile instance!");
+
+    // send the missile creation message
+    cslogger.Debug($"Player.cs: creating missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
+    Server theServer = (Server)GetNode("/root/Server");
+    theServer.InstantiateMissile(MyMissile);
   }
 
   // Called when the node enters the scene tree for the first time.

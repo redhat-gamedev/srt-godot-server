@@ -88,7 +88,7 @@ public class Server : Node
     {
       cslogger.Verbose($"Server.cs: Processing missile: {missile.uuid}");
       // create the buffer for the missile
-      EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update);
+      EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update, missile.MyPlayer.uuid);
 
       // send the buffer for the missile
       MessageInterface.SendGameEvent(egeb);
@@ -122,7 +122,7 @@ public class Server : Node
     missile.QueueFree();
 
     // create the buffer for the specific player and send it
-    EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Destroy);
+    EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Destroy, missile.MyPlayer.uuid);
 
     // send the player create event message
     MessageInterface.SendGameEvent(egeb);
@@ -201,6 +201,18 @@ public class Server : Node
       }
     }
   }
+
+  public void InstantiateMissile(SpaceMissile missile)
+  {
+    // this only sends the missile creation event buffer
+
+    // create the protobuf for the player joining
+    EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Create, missile.MyPlayer.uuid);
+
+    // send the missile create event message
+    MessageInterface.SendGameEvent(egeb);
+  }
+
   void InstantiatePlayer(String UUID)
   {
     // Update the sector map in preparation for traversing the rings, expanding

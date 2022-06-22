@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 
+// TODO: should probably use Godot Vector2 instead of this Point model
 public struct Point
 {
   public Point(double x, double y)
