@@ -4,7 +4,11 @@
     <RootNamespace>srtgodottest</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="AMQPNetLite" Version="2.4.3"/>
-    <PackageReference Include="protobuf-net" Version="3.0.125"/>
+    <PackageReference Include="AMQPNetLite">
+      <Version>2.4.3</Version>
+    </PackageReference>
+    <PackageReference Include="protobuf-net">
+      <Version>3.0.125</Version>
+    </PackageReference>
   </ItemGroup>
 </Project>
