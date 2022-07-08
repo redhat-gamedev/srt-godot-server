@@ -10,7 +10,7 @@ public class Server : Node
 
   Random rnd = new Random();
 
-  CSLogger cslogger;
+  public CSLogger cslogger;
 
   AMQPserver MessageInterface;
 
@@ -383,32 +383,53 @@ public class Server : Node
     cslogger.Info("Server.cs: Configuring");
 
     var serverConfig = new ConfigFile();
-    Error err = serverConfig.Load("server.cfg");
+    // save the config file load status to err to check which value to use (config or env) later
+    Error err = serverConfig.Load("Config/server.cfg");
 
-    // If the file didn't load, ignore it.
-    // config file presence will supercede environment 
-    // TODO: probably should make environment supercede config
-    if (err != Error.Ok) 
-    { 
-      // check for environment
-      // SectorSize = Int32.Parse(System.Environment.GetEnvironmentVariable("SRT_SERVER_SECTOR_SIZE")) ?? this.SectorSize;
-      // cslogger.Info($"Server.cs: Sector size: {SectorSize}");
-      return; 
+    // if the file was loaded successfully, read the vars
+    if (err == Error.Ok) 
+    {
+      SectorSize = (Int32) serverConfig.GetValue("game","sector_size");
+      // player settings
+      // https://stackoverflow.com/questions/24447387/cast-object-containing-int-to-float-results-in-invalidcastexception
+      PlayerDefaultThrust = Convert.ToSingle(serverConfig.GetValue("player","thrust"));
+      PlayerDefaultMaxSpeed = Convert.ToSingle(serverConfig.GetValue("player","max_speed"));
+      PlayerDefaultRotationThrust = Convert.ToSingle(serverConfig.GetValue("player","rotation_thrust"));
+      PlayerDefaultHitPoints = (int) serverConfig.GetValue("player","hit_points");
+      PlayerDefaultMissileSpeed = (int) serverConfig.GetValue("player","missile_speed");
+      PlayerDefaultMissileLife = Convert.ToSingle(serverConfig.GetValue("player","missile_life"));
+      PlayerDefaultMissileDamage = (int) serverConfig.GetValue("player","missile_damage");
     }
 
-    // server settings
-    SectorSize = (Int32) serverConfig.GetValue("game","sector_size");
+    // pull values from env -- will get nulls if any vars are not set
+    String envSectorSize = System.Environment.GetEnvironmentVariable("SRT_SECTOR_SIZE");
+    String envPlayerThrust = System.Environment.GetEnvironmentVariable("SRT_PLAYER_THRUST");
+    String envPlayerSpeed = System.Environment.GetEnvironmentVariable("SRT_PLAYER_SPEED");
+    String envPlayerRotation = System.Environment.GetEnvironmentVariable("SRT_PLAYER_ROTATION");
+    String envPlayerHealth = System.Environment.GetEnvironmentVariable("SRT_PLAYER_HEALTH");
+    String envMissileSpeed = System.Environment.GetEnvironmentVariable("SRT_MISSILE_SPEED");
+    String envMissileLife = System.Environment.GetEnvironmentVariable("SRT_MISSILE_LIFE");
+    String envMissileDamage = System.Environment.GetEnvironmentVariable("SRT_MISSILE_DAMAGE");
 
-    // player settings
-    // https://stackoverflow.com/questions/24447387/cast-object-containing-int-to-float-results-in-invalidcastexception
-    PlayerDefaultThrust = Convert.ToSingle(serverConfig.GetValue("player","thrust"));
-    PlayerDefaultMaxSpeed = Convert.ToSingle(serverConfig.GetValue("player","max_speed"));
-    PlayerDefaultRotationThrust = Convert.ToSingle(serverConfig.GetValue("player","rotation_thrust"));
-    PlayerDefaultHitPoints = (int) serverConfig.GetValue("player","hit_points");
-    PlayerDefaultMissileSpeed = (int) serverConfig.GetValue("player","missile_speed");
-    PlayerDefaultMissileLife = Convert.ToSingle(serverConfig.GetValue("player","missile_life"));
-    PlayerDefaultMissileDamage = (int) serverConfig.GetValue("player","missile_damage");
+    // override any loaded config with env
+    if (envSectorSize != null) SectorSize = Int32.Parse(envSectorSize);
+    if (envPlayerThrust != null) PlayerDefaultThrust = float.Parse(envPlayerThrust);
+    if (envPlayerSpeed != null) PlayerDefaultMaxSpeed = float.Parse(envPlayerSpeed);
+    if (envPlayerRotation != null) PlayerDefaultRotationThrust = float.Parse(envPlayerSpeed);
+    if (envPlayerHealth != null) PlayerDefaultHitPoints = int.Parse(envPlayerHealth);
+    if (envMissileSpeed != null) PlayerDefaultMissileSpeed = int.Parse(envMissileSpeed);
+    if (envMissileLife != null) PlayerDefaultMissileLife = float.Parse(envMissileLife);
+    if (envMissileDamage != null) PlayerDefaultMissileDamage = int.Parse(envMissileDamage);
 
+    // output the config state
+    cslogger.Info($"Server.cs: Sector Size:      {SectorSize}");
+    cslogger.Info($"Server.cs: Player Thrust:    {PlayerDefaultThrust}");
+    cslogger.Info($"Server.cs: Player Speed:     {PlayerDefaultMaxSpeed}");
+    cslogger.Info($"Server.cs: Player Rotation:  {PlayerDefaultRotationThrust}");
+    cslogger.Info($"Server.cs: Player HP:        {PlayerDefaultHitPoints}");
+    cslogger.Info($"Server.cs: Missile Speed:    {PlayerDefaultMissileSpeed}");
+    cslogger.Info($"Server.cs: Missile Life:     {PlayerDefaultMissileLife}");
+    cslogger.Info($"Server.cs: Missile Damage:   {PlayerDefaultMissileDamage}");
   }
 
   // Called when the node enters the scene tree for the first time.
@@ -418,18 +439,16 @@ public class Server : Node
     Node gdlogger = GetNode<Node>("/root/GDLogger");
 
     // TODO: logging config should be manipulateable from environment
-    gdlogger.Call("load_config", "res://logger.cfg");
+    gdlogger.Call("load_config", "res://Config/logger.cfg");
     cslogger = GetNode<CSLogger>("/root/CSLogger");
 
-    cslogger.Info("Space Ring Things (SRT) Game Server");
+    cslogger.Info("Server.cs: Space Ring Things (SRT) Game Server");
 
     MessageInterface = GetNode<AMQPserver>("/root/AMQPserver");
 
-    cslogger.Info("Beginning game server");
+    cslogger.Info("Server.cs: Beginning game server");
 
     LoadConfig();
-
-    // TODO: output the current config
 
     // initialize the starfield size to the initial sector size
     // the play area is clamped 
