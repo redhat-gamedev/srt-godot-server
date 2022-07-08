@@ -33,6 +33,9 @@ public class PlayerShip : KinematicBody2D
 
   public String uuid;
 
+  // for the server we're interfaced with
+  Server MyServer;
+
   CSLogger cslogger;
 
   // for now only one missile at a time
@@ -75,8 +78,7 @@ public class PlayerShip : KinematicBody2D
   public void ExpireMissile() 
   { 
     cslogger.Verbose($"Player.cs: removing missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
-    Server theServer = (Server)GetNode("/root/Server");
-    theServer.RemoveMissile(MyMissile);
+    MyServer.RemoveMissile(MyMissile);
     MyMissile = null;
   }
 
@@ -120,17 +122,15 @@ public class PlayerShip : KinematicBody2D
 
     // send the missile creation message
     cslogger.Debug($"Player.cs: creating missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
-    Server theServer = (Server)GetNode("/root/Server");
-    theServer.InstantiateMissile(MyMissile);
+    MyServer.InstantiateMissile(MyMissile);
   }
 
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
     // initialize the logging configuration
-    Node gdlogger = GetNode<Node>("/root/GDLogger");
-    gdlogger.Call("load_config", "res://logger.cfg");
-    cslogger = GetNode<CSLogger>("/root/CSLogger");
+    MyServer = GetNode<Server>("/root/Server");
+    cslogger = MyServer.cslogger;
 
     Node2D shipThing = (Node2D)GetParent();
     Label playerIDLabel = (Label)shipThing.GetNode("Stat/IDLabel");
@@ -149,8 +149,7 @@ public class PlayerShip : KinematicBody2D
   void RemovePlayer()
   {
     cslogger.Verbose($"Player.cs: removing player: {uuid}");
-    Server theServer = (Server)GetNode("/root/Server");
-    theServer.RemovePlayer(uuid);
+    MyServer.RemovePlayer(uuid);
   }
 
   public override void _Process(float delta)
@@ -180,10 +179,8 @@ public class PlayerShip : KinematicBody2D
     hitPointsLabel.Text = $"HP: {HitPoints}";
     positionLabel.Text = $"X: {GlobalPosition.x} Y: {GlobalPosition.y}";
 
-    Server theServer = GetNode<Server>("/root/Server");
-
     // figure out the hex from the pixel position
-    Layout theLayout = theServer.HexLayout;
+    Layout theLayout = MyServer.HexLayout;
     FractionalHex theHex = theLayout.PixelToHex(new Point(GlobalPosition.x, GlobalPosition.y));
 
     hexLabel.Text = $"q: {theHex.HexRound().q}, r: {theHex.HexRound().r}, s: {theHex.HexRound().s}";
@@ -232,7 +229,7 @@ public class PlayerShip : KinematicBody2D
     // game
 
     // clamp the player to the starfield radius
-    Int32 starFieldRadiusPixels = theServer.StarFieldRadiusPixels;
+    Int32 starFieldRadiusPixels = MyServer.StarFieldRadiusPixels;
     Vector2 currentGlobalPosition = GlobalPosition;
     if (currentGlobalPosition.Length() > starFieldRadiusPixels)
     {

@@ -12,7 +12,7 @@ public class AMQPserver : Node
   CSLogger cslogger;
 
   // TODO: make config file
-  String url = "amqp://10.88.0.10:5672";
+  String url = "amqp://localhost:5672";
   String commandInQueue = "COMMAND.IN";
   String gameEventOutQueue = "GAME.EVENT.OUT";
 
@@ -33,7 +33,7 @@ public class AMQPserver : Node
 
   void CommandReceived(IReceiverLink receiver, Message message)
   {
-    cslogger.Verbose("Event received!");
+    cslogger.Verbose("AMQPserver.cs: Event received!");
     // accept the message so that it gets removed from the queue
     receiver.Accept(message);
 
@@ -93,7 +93,7 @@ public class AMQPserver : Node
     // TODO: should probably wrap in some kind of try and catch failure to connect?
     //       is this even async?
     // TODO: include connection details
-    cslogger.Debug("Initializing AMQP connection");
+    cslogger.Debug("AMQPserver.cs: Initializing AMQP connection");
     Connection.DisableServerCertValidation = true;
 
     //Trace.TraceLevel = TraceLevel.Frame;
@@ -134,18 +134,25 @@ public class AMQPserver : Node
     };
     commandInSender = new SenderLink(amqpSession, "srt-game-server-debug-sender", commandInTarget, null);
 
-    cslogger.Debug("Finished initializing AMQP connection");
+    cslogger.Debug("AMQPserver.cs: Finished initializing AMQP connection");
   }
 
   public void LoadConfig()
   {
     var serverConfig = new ConfigFile();
-    Godot.Error err = serverConfig.Load("server.cfg");
+    Godot.Error err = serverConfig.Load("Config/server.cfg");
 
-    // If the file didn't load, ignore it.
-    if (err != Godot.Error.Ok) { return; }
+    // if the file was loaded successfully, read the vars
+    if (err == Godot.Error.Ok) 
+    {
+      url = (String) serverConfig.GetValue("amqp","server_string");
+    }
+    // pull values from env -- will get nulls if any vars are not set
+    String envAMQPUrl = System.Environment.GetEnvironmentVariable("SRT_AMQP_URL");
 
-    url = (String) serverConfig.GetValue("amqp","server_string");
+    if (envAMQPUrl != null) url = envAMQPUrl;
+
+    cslogger.Info($"AMQPServer.cs: AMQP url is {url}");
   }
 
   // Called when the node enters the scene tree for the first time.
@@ -153,7 +160,9 @@ public class AMQPserver : Node
   {
     // initialize the logging configuration
     Node gdlogger = GetNode<Node>("/root/GDLogger");
-    gdlogger.Call("load_config", "res://logger.cfg");
+    gdlogger.Call("load_config", "res://Config/logger.cfg");
+
+    // TODO: logging config should be manipulateable from environment
     cslogger = GetNode<CSLogger>("/root/CSLogger");
 
     MyServer = GetNode<Server>("/root/Server");

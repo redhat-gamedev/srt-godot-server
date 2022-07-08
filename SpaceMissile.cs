@@ -4,6 +4,9 @@ using redhatgamedev.srt;
 
 public class SpaceMissile : Area2D
 {
+  // for the server we're interfaced with
+  Server MyServer;
+
   CSLogger cslogger;
 
   public float MissileLife;
@@ -50,9 +53,8 @@ public class SpaceMissile : Area2D
   public override void _Ready() 
   {  
     // initialize the logging configuration
-    Node gdlogger = GetNode<Node>("/root/GDLogger");
-    gdlogger.Call("load_config", "res://logger.cfg");
-    cslogger = GetNode<CSLogger>("/root/CSLogger");
+    MyServer = GetNode<Server>("/root/Server");
+    cslogger = MyServer.cslogger;
 
     // connect the hit signal to handling the hit
     Connect(nameof(Hit), this, "_HandleHit");
