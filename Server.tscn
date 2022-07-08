@@ -31,10 +31,8 @@ margin_left = 9.0
 margin_top = 126.0
 margin_right = 168.0
 margin_bottom = 326.0
+focus_mode = 0
 hide_folding = true
-__meta__ = {
-"_edit_use_anchors_": false
-}
 
 [connection signal="pressed" from="DebugUI/JoinAPlayer" to="." method="_on_JoinAPlayer_pressed"]
 [connection signal="item_selected" from="DebugUI/CurrentPlayerTree" to="." method="_on_CurrentPlayerTree_item_selected"]

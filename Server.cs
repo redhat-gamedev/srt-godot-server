@@ -380,11 +380,21 @@ public class Server : Node
 
   public void LoadConfig()
   {
+    cslogger.Info("Server.cs: Configuring");
+
     var serverConfig = new ConfigFile();
     Error err = serverConfig.Load("server.cfg");
 
     // If the file didn't load, ignore it.
-    if (err != Error.Ok) { return; }
+    // config file presence will supercede environment 
+    // TODO: probably should make environment supercede config
+    if (err != Error.Ok) 
+    { 
+      // check for environment
+      // SectorSize = Int32.Parse(System.Environment.GetEnvironmentVariable("SRT_SERVER_SECTOR_SIZE")) ?? this.SectorSize;
+      // cslogger.Info($"Server.cs: Sector size: {SectorSize}");
+      return; 
+    }
 
     // server settings
     SectorSize = (Int32) serverConfig.GetValue("game","sector_size");
@@ -406,6 +416,8 @@ public class Server : Node
   {
     // initialize the logging configuration
     Node gdlogger = GetNode<Node>("/root/GDLogger");
+
+    // TODO: logging config should be manipulateable from environment
     gdlogger.Call("load_config", "res://logger.cfg");
     cslogger = GetNode<CSLogger>("/root/CSLogger");
 
