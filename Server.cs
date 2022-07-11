@@ -543,6 +543,8 @@ public class Server : Node
     CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
     LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
 
+    cslogger.Debug($"Server.cs: Join button pressed for UUID: {textField.Text}");
+
     // don't do anything if this UUID already exists
     if (playerObjects.ContainsKey(textField.Text)) { return; }
 
@@ -557,6 +559,23 @@ public class Server : Node
     cb.Type = CommandBuffer.CommandBufferType.Security;
     cb.securityCommandBuffer = scb;
     MessageInterface.SendCommand(cb);
+  }
+
+  void _on_DeleteAPlayer_pressed()
+  {
+    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
+    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
+
+    cslogger.Debug($"Server.cs: Delete button pressed for UUID: {textField.Text}");
+
+    // check if the playerobject dictionary has an entry for the uuid in the textfield
+    Node2D selectedPlayerNode2D;
+    if (playerObjects.TryGetValue(textField.Text, out selectedPlayerNode2D))
+    {
+      // it does, so remove that player
+      cslogger.Debug($"Server.cs: Removing player with UUID: {textField.Text}");
+      RemovePlayer(textField.Text);
+    }
   }
 
   public override void _UnhandledInput(InputEvent @event)

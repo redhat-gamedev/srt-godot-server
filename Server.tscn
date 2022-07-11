@@ -13,9 +13,13 @@ margin_top = 45.0
 margin_right = 171.0
 margin_bottom = 74.0
 text = "Player Join"
-__meta__ = {
-"_edit_use_anchors_": false
-}
+
+[node name="DeleteAPlayer" type="Button" parent="DebugUI"]
+margin_left = 6.0
+margin_top = 80.0
+margin_right = 171.0
+margin_bottom = 109.0
+text = "Player Delete"
 
 [node name="PlayerID" type="LineEdit" parent="DebugUI"]
 margin_left = 8.0
@@ -35,4 +39,5 @@ focus_mode = 0
 hide_folding = true
 
 [connection signal="pressed" from="DebugUI/JoinAPlayer" to="." method="_on_JoinAPlayer_pressed"]
+[connection signal="pressed" from="DebugUI/DeleteAPlayer" to="." method="_on_DeleteAPlayer_pressed"]
 [connection signal="item_selected" from="DebugUI/CurrentPlayerTree" to="." method="_on_CurrentPlayerTree_item_selected"]
