@@ -343,8 +343,22 @@ public class Server : Node
         break;
       case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
         cslogger.Info($"Server.cs: Leave UUID: {securityCommandBuffer.Uuid}");
+        ProcessPlayerLeave(securityCommandBuffer);
         break;
     }
+  }
+
+  void ProcessPlayerLeave(SecurityCommandBuffer securityCommandBuffer)
+  {
+    // find the player object
+    Node2D playerShip;
+    if (playerObjects.TryGetValue(securityCommandBuffer.Uuid, out playerShip))
+    {
+      // we were able to find an object, so do the leave
+      cslogger.Debug($"Server.cs: Leaving player with UUID: {securityCommandBuffer.Uuid}");
+      RemovePlayer(securityCommandBuffer.Uuid);
+    }
+
   }
 
   void ProcessPlayerJoins()
@@ -367,7 +381,7 @@ public class Server : Node
         ProcessSecurityGameEvent(CommandBuffer.securityCommandBuffer);
         break;
       case CommandBuffer.CommandBufferType.Rawinput:
-        cslogger.Verbose("Raw input event!");
+        cslogger.Verbose("Server.cs: Raw input event!");
 
         if (CommandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Move != null)
         { ProcessMoveCommand(CommandBuffer); }
