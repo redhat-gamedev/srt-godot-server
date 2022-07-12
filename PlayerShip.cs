@@ -50,6 +50,8 @@ public class PlayerShip : KinematicBody2D
   [Export]
   public int MissileDamage = 25;
 
+  Node2D shipThing = null;
+
   public EntityGameEventBuffer CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType BufferType)
   {
     EntityGameEventBuffer egeb = new EntityGameEventBuffer();
@@ -154,18 +156,8 @@ public class PlayerShip : KinematicBody2D
 
   public override void _Process(float delta)
   {
-    if (HitPoints <= 0)
-    {
-      cslogger.Debug("Hitpoints zeroed! Remove the player!");
-      RemovePlayer();
-    }
-  }
-  public override void _PhysicsProcess(float delta)
-  {
-    // somewhat based on: https://kidscancode.org/godot_recipes/2d/topdown_movement/
-    // "rotate and move" / asteroids-style-ish
 
-    Node2D shipThing = (Node2D)GetParent();
+    if (shipThing == null) shipThing = (Node2D)GetParent();
 
     // TODO: we are doing instant rotation so probably should rename this
     Label angularVelocityLabel = (Label)shipThing.GetNode("Stat/AngularVelocity");
@@ -174,16 +166,27 @@ public class PlayerShip : KinematicBody2D
     Label positionLabel = (Label)shipThing.GetNode("Stat/Position");
     Label hexLabel = (Label)shipThing.GetNode("Stat/Hex");
 
+    // figure out the hex from the pixel position
+    Layout theLayout = MyServer.HexLayout;
+    FractionalHex theHex = theLayout.PixelToHex(new Point(GlobalPosition.x, GlobalPosition.y));
+    hexLabel.Text = $"q: {theHex.HexRound().q}, r: {theHex.HexRound().r}, s: {theHex.HexRound().s}";
+
     angularVelocityLabel.Text = $"Rot: {RotationDegrees}";
     linearVelocityLabel.Text = $"Vel: {CurrentVelocity}";
     hitPointsLabel.Text = $"HP: {HitPoints}";
     positionLabel.Text = $"X: {GlobalPosition.x} Y: {GlobalPosition.y}";
+    if (HitPoints <= 0)
+    {
+      cslogger.Debug("Hitpoints zeroed! Remove the player!");
+      RemovePlayer();
+    }
+  }
+  public override void _PhysicsProcess(float delta)
+  {
+    if (shipThing == null) shipThing = (Node2D)GetParent();
 
-    // figure out the hex from the pixel position
-    Layout theLayout = MyServer.HexLayout;
-    FractionalHex theHex = theLayout.PixelToHex(new Point(GlobalPosition.x, GlobalPosition.y));
-
-    hexLabel.Text = $"q: {theHex.HexRound().q}, r: {theHex.HexRound().r}, s: {theHex.HexRound().s}";
+    // somewhat based on: https://kidscancode.org/godot_recipes/2d/topdown_movement/
+    // "rotate and move" / asteroids-style-ish
 
     float rotation_dir = 0; // in case we need it
 
