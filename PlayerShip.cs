@@ -45,7 +45,7 @@ public class PlayerShip : KinematicBody2D
   public int MissileSpeed = 300;
   
   [Export]
-  public float MissileLife = 4;
+  public float MissileLife = 2;
 
   [Export]
   public int MissileDamage = 25;
@@ -100,7 +100,7 @@ public class PlayerShip : KinematicBody2D
     MyMissile.Position = GlobalPosition;
 
     // negative direction is "up"
-    Vector2 offset = new Vector2(0, -100);
+    Vector2 offset = new Vector2(0, -60);
 
     // rotate the offset to match the current ship heading
     offset = offset.Rotated(Rotation);
