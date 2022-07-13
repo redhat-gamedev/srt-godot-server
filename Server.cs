@@ -206,6 +206,8 @@ public class Server : Node
   {
     // this only sends the missile creation event buffer
 
+    cslogger.Debug($"Server.cs: Sending missile creation message for missile {missile.uuid} player {missile.MyPlayer.uuid}");
+
     // create the protobuf for the player joining
     EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Create, missile.MyPlayer.uuid);
 
