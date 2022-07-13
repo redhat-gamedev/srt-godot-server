@@ -87,7 +87,11 @@ public class PlayerShip : KinematicBody2D
   public void FireMissile()
   {
     // only one missile allowed for now
-    if (MyMissile != null) { return; }
+    if (MyMissile != null) 
+    { 
+      cslogger.Debug($"PlayerShip.cs: Missile for player {uuid} exists - skipping");
+      return; 
+    }
 
     PackedScene missileScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
     MyMissile = (SpaceMissile)missileScene.Instance();
