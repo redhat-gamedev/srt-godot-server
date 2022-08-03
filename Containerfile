@@ -39,9 +39,10 @@ ARG GODOT_PROJECT_NAME
 WORKDIR /app
 COPY --from=godot-server /bin/godot-server .
 COPY --from=build /src/export .
-COPY --from=build /src/logger.cfg .
+COPY --from=build /src/Config/logger.cfg .
 
 RUN mkdir -p ~/.config/godot \
-    && mkdir -p ~/.local/share/godot/app_userdata/${GODOT_PROJECT_NAME} # A workaround for https://github.com/godotengine/godot/issues/44873 to silence the error
+    && mkdir -p ~/.local/share/godot/app_userdata/srt-godot-test 
+# A workaround for https://github.com/godotengine/godot/issues/44873 to silence the error
 
 ENTRYPOINT /app/server
