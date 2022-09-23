@@ -59,6 +59,12 @@ public class AMQPserver : Node
 
     Message msg = new Message(msgBytes);
 
+    // create and destroy messages are mega important, so don't set a TTL for those
+    // updates are not as important, so set a low TTL for those
+    if (!(egeb.Type == EntityGameEventBuffer.EntityGameEventBufferType.Create 
+      | egeb.Type == EntityGameEventBuffer.EntityGameEventBufferType.Destroy))
+      { msg.Header = new Header() { Ttl = 250 }; }
+
     // don't care about the ack on our message being received
     gameEventOutSender.Send(msg, null, null);
 
