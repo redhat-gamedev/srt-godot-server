@@ -59,8 +59,6 @@ public class SpaceMissile : Area2D
     // connect the hit signal to handling the hit
     Connect(nameof(Hit), this, "_HandleHit");
 
-    uuid = System.Guid.NewGuid().ToString();
-
     // add the missile to the missiles group so that we can iterate over
     // the entire group and send updates later
     AddToGroup("missiles");

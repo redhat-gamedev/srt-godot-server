@@ -52,6 +52,8 @@ public class PlayerShip : KinematicBody2D
 
   Node2D shipThing = null;
 
+  PackedScene MissileScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
+
   public EntityGameEventBuffer CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType BufferType)
   {
     EntityGameEventBuffer egeb = new EntityGameEventBuffer();
@@ -84,7 +86,7 @@ public class PlayerShip : KinematicBody2D
     MyMissile = null;
   }
 
-  public void FireMissile()
+  public void FireMissile(string missileUUID = null)
   {
     // only one missile allowed for now
     if (MyMissile != null) 
@@ -93,10 +95,17 @@ public class PlayerShip : KinematicBody2D
       return; 
     }
 
-    PackedScene missileScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
-    MyMissile = (SpaceMissile)missileScene.Instance();
+    MyMissile = (SpaceMissile)MissileScene.Instance();
 
-    MyMissile.uuid = Guid.NewGuid().ToString();
+    // TODO: need to check for UUID collision
+    cslogger.Debug($"PlayerShip.cs: Supplied UUID is {missileUUID}");
+    if (missileUUID != null)
+      // use the suggested UUID
+      { MyMissile.uuid = missileUUID; }
+    else
+      { MyMissile.uuid = Guid.NewGuid().ToString(); }
+
+    cslogger.Debug($"PlayerShip.cs: Missile UUID is {MyMissile.uuid}");
 
     // missile should point in the same direction as the ship
     MyMissile.Rotation = Rotation;
@@ -120,14 +129,12 @@ public class PlayerShip : KinematicBody2D
     // this is a poop way to do this
     MyMissile.MyPlayer = this;
 
-    // put the missile into the missiles group so we can send updates about it later
-    MyMissile.AddToGroup("missiles");
-
+    // send the missile creation message
+    cslogger.Debug($"PlayerShip.cs: creating missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
     Node rootNode = GetNode<Node>("/root");
     rootNode.AddChild(MyMissile);
+    cslogger.Debug($"PlayerShip.cs: checking missilg: {MyMissile.uuid}");
 
-    // send the missile creation message
-    cslogger.Debug($"Player.cs: creating missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
     MyServer.InstantiateMissile(MyMissile);
   }
 
