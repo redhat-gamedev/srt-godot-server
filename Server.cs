@@ -65,6 +65,11 @@ public class Server : Node
 
   /* END PLAYER DEFAULTS AND CONFIG */
 
+  // SCENE PRELOADS
+  PackedScene PlayerShipThing = (PackedScene)ResourceLoader.Load("res://Player.tscn");
+
+  // END SCENE PRELOADS
+
   void SendGameUpdates()
   {
     cslogger.Verbose("Server.cs: Sending updates about game state to clients");
@@ -227,8 +232,7 @@ public class Server : Node
     // start with the center
     Hex theSector = new Hex(0,0,0);
 
-    PackedScene playerShipThing = (PackedScene)ResourceLoader.Load("res://Player.tscn");
-    Node2D playerShipThingInstance = (Node2D)playerShipThing.Instance();
+    Node2D playerShipThingInstance = (Node2D)PlayerShipThing.Instance();
 
     PlayerShip newPlayer = playerShipThingInstance.GetNode<PlayerShip>("PlayerShip");
     newPlayer.uuid = UUID;
@@ -322,13 +326,14 @@ public class Server : Node
     cslogger.Debug("Server.cs: Processing shoot command!");
     DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
-    String uuid = cb.rawInputCommandBuffer.Uuid;
-    Node2D playerRoot = playerObjects[uuid];
+    String playerUUID = cb.rawInputCommandBuffer.Uuid;
+    String missileUUID = dsricb.missileUUID;
+    Node2D playerRoot = playerObjects[playerUUID];
 
     // find the PlayerShip
     PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
 
-    movePlayer.FireMissile();
+    movePlayer.FireMissile(missileUUID);
   }
 
   void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer)
