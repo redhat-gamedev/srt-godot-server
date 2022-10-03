@@ -15,8 +15,6 @@ run/main_scene="res://Server.tscn"
 
 [autoload]
 
-GDLogger="*res://logger.gd"
-CSLogger="*res://CSLogger.cs"
 AMQPserver="*res://AMQPserver.cs"
 
 [display]

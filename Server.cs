@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using redhatgamedev.srt;
+using Serilog;
 
 public class Server : Node
 {
@@ -10,7 +11,7 @@ public class Server : Node
 
   Random rnd = new Random();
 
-  public CSLogger cslogger;
+  public Serilog.Core.Logger _serilogger = new LoggerConfiguration().MinimumLevel.Information().WriteTo.Console().CreateLogger();
 
   AMQPserver MessageInterface;
 
@@ -72,11 +73,11 @@ public class Server : Node
 
   void SendGameUpdates()
   {
-    cslogger.Verbose("Server.cs: Sending updates about game state to clients");
+    _serilogger.Verbose("Server.cs: Sending updates about game state to clients");
 
     foreach(KeyValuePair<String, Node2D> entry in playerObjects)
     {
-      cslogger.Verbose($"Server.cs: Sending update for player: {entry.Key}");
+      _serilogger.Verbose($"Server.cs: Sending update for player: {entry.Key}");
 
       // find the PlayerShip
       PlayerShip thePlayer = entry.Value.GetNode<PlayerShip>("PlayerShip");
@@ -91,7 +92,7 @@ public class Server : Node
     // TODO: we never send a create message for the missile
     foreach(SpaceMissile missile in GetTree().GetNodesInGroup("missiles"))
     {
-      cslogger.Verbose($"Server.cs: Processing missile: {missile.uuid}");
+      _serilogger.Verbose($"Server.cs: Processing missile: {missile.uuid}");
       // create the buffer for the missile
       EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update, missile.MyPlayer.uuid);
 
@@ -104,7 +105,7 @@ public class Server : Node
   // should this be handled IN the player model itself?
   public void RemovePlayer(String UUID)
   {
-    cslogger.Debug($"Server.cs: Removing player: {UUID}");
+    _serilogger.Debug($"Server.cs: Removing player: {UUID}");
     Node2D thePlayerToRemove = playerObjects[UUID];
     PlayerShip thePlayer = thePlayerToRemove.GetNode<PlayerShip>("PlayerShip");
 
@@ -121,7 +122,7 @@ public class Server : Node
 
   public void RemoveMissile(SpaceMissile missile)
   {
-    cslogger.Debug($"Server.cs: Removing missile: {missile.uuid}");
+    _serilogger.Debug($"Server.cs: Removing missile: {missile.uuid}");
 
     // TODO: should this get wrapped with a try or something?
     missile.QueueFree();
@@ -211,7 +212,7 @@ public class Server : Node
   {
     // this only sends the missile creation event buffer
 
-    cslogger.Debug($"Server.cs: Sending missile creation message for missile {missile.uuid} player {missile.MyPlayer.uuid}");
+    _serilogger.Debug($"Server.cs: Sending missile creation message for missile {missile.uuid} player {missile.MyPlayer.uuid}");
 
     // create the protobuf for the player joining
     EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Create, missile.MyPlayer.uuid);
@@ -294,7 +295,7 @@ public class Server : Node
                                 y: (Int32)theSectorCenter.y + yOffset);
 
     AddChild(playerShipThingInstance);
-    cslogger.Info("Server.cs: Added player instance!");
+    _serilogger.Information("Server.cs: Added player instance!");
 
     // create the protobuf for the player joining
     EntityGameEventBuffer egeb = newPlayer.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Create);
@@ -305,7 +306,7 @@ public class Server : Node
 
   void ProcessMoveCommand(CommandBuffer cb)
   {
-    cslogger.Verbose("Server.cs: Processing move command!");
+    _serilogger.Verbose("Server.cs: Processing move command!");
     DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
     String uuid = cb.rawInputCommandBuffer.Uuid;
@@ -323,7 +324,7 @@ public class Server : Node
 
   void ProcessShootCommand(CommandBuffer cb)
   {
-    cslogger.Debug("Server.cs: Processing shoot command!");
+    _serilogger.Debug("Server.cs: Processing shoot command!");
     DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
     String playerUUID = cb.rawInputCommandBuffer.Uuid;
@@ -338,18 +339,18 @@ public class Server : Node
 
   void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer)
   {
-    cslogger.Verbose("Server.cs: Processing security command buffer!");
+    _serilogger.Verbose("Server.cs: Processing security command buffer!");
     switch (securityCommandBuffer.Type)
     {
       case SecurityCommandBuffer.SecurityCommandBufferType.Join:
-        cslogger.Info($"Server.cs: Join UUID: {securityCommandBuffer.Uuid}");
+        _serilogger.Information($"Server.cs: Join UUID: {securityCommandBuffer.Uuid}");
         // TODO: buffer this because sometimes it collides with sending game
         // updates and an exception is fired because the player collection is
         // modified during looping over it
         PlayerJoinQueue.Enqueue(securityCommandBuffer);
         break;
       case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
-        cslogger.Info($"Server.cs: Leave UUID: {securityCommandBuffer.Uuid}");
+        _serilogger.Information($"Server.cs: Leave UUID: {securityCommandBuffer.Uuid}");
         ProcessPlayerLeave(securityCommandBuffer);
         break;
     }
@@ -362,7 +363,7 @@ public class Server : Node
     if (playerObjects.TryGetValue(securityCommandBuffer.Uuid, out playerShip))
     {
       // we were able to find an object, so do the leave
-      cslogger.Debug($"Server.cs: Leaving player with UUID: {securityCommandBuffer.Uuid}");
+      _serilogger.Debug($"Server.cs: Leaving player with UUID: {securityCommandBuffer.Uuid}");
       RemovePlayer(securityCommandBuffer.Uuid);
     }
 
@@ -384,11 +385,11 @@ public class Server : Node
     switch (CommandBuffer.Type)
     {
       case CommandBuffer.CommandBufferType.Security:
-        cslogger.Verbose("Server.cs: Security event!");
+        _serilogger.Verbose("Server.cs: Security event!");
         ProcessSecurityGameEvent(CommandBuffer.securityCommandBuffer);
         break;
       case CommandBuffer.CommandBufferType.Rawinput:
-        cslogger.Verbose("Server.cs: Raw input event!");
+        _serilogger.Verbose("Server.cs: Raw input event!");
 
         if (CommandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Move != null)
         { ProcessMoveCommand(CommandBuffer); }
@@ -401,7 +402,7 @@ public class Server : Node
 
   public void LoadConfig()
   {
-    cslogger.Info("Server.cs: Configuring");
+    _serilogger.Information("Server.cs: Configuring");
 
     var serverConfig = new ConfigFile();
     // save the config file load status to err to check which value to use (config or env) later
@@ -443,31 +444,24 @@ public class Server : Node
     if (envMissileDamage != null) PlayerDefaultMissileDamage = int.Parse(envMissileDamage);
 
     // output the config state
-    cslogger.Info($"Server.cs: Sector Size:      {SectorSize}");
-    cslogger.Info($"Server.cs: Player Thrust:    {PlayerDefaultThrust}");
-    cslogger.Info($"Server.cs: Player Speed:     {PlayerDefaultMaxSpeed}");
-    cslogger.Info($"Server.cs: Player Rotation:  {PlayerDefaultRotationThrust}");
-    cslogger.Info($"Server.cs: Player HP:        {PlayerDefaultHitPoints}");
-    cslogger.Info($"Server.cs: Missile Speed:    {PlayerDefaultMissileSpeed}");
-    cslogger.Info($"Server.cs: Missile Life:     {PlayerDefaultMissileLife}");
-    cslogger.Info($"Server.cs: Missile Damage:   {PlayerDefaultMissileDamage}");
+    _serilogger.Information($"Server.cs: Sector Size:      {SectorSize}");
+    _serilogger.Information($"Server.cs: Player Thrust:    {PlayerDefaultThrust}");
+    _serilogger.Information($"Server.cs: Player Speed:     {PlayerDefaultMaxSpeed}");
+    _serilogger.Information($"Server.cs: Player Rotation:  {PlayerDefaultRotationThrust}");
+    _serilogger.Information($"Server.cs: Player HP:        {PlayerDefaultHitPoints}");
+    _serilogger.Information($"Server.cs: Missile Speed:    {PlayerDefaultMissileSpeed}");
+    _serilogger.Information($"Server.cs: Missile Life:     {PlayerDefaultMissileLife}");
+    _serilogger.Information($"Server.cs: Missile Damage:   {PlayerDefaultMissileDamage}");
   }
 
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
-    // initialize the logging configuration
-    Node gdlogger = GetNode<Node>("/root/GDLogger");
-
-    // TODO: logging config should be manipulateable from environment
-    gdlogger.Call("load_config", "res://Config/logger.cfg");
-    cslogger = GetNode<CSLogger>("/root/CSLogger");
-
-    cslogger.Info("Server.cs: Space Ring Things (SRT) Game Server");
+    _serilogger.Information("Server.cs: Space Ring Things (SRT) Game Server");
 
     MessageInterface = GetNode<AMQPserver>("/root/AMQPserver");
 
-    cslogger.Info("Server.cs: Beginning game server");
+    _serilogger.Information("Server.cs: Beginning game server");
 
     LoadConfig();
 
@@ -504,11 +498,11 @@ public class Server : Node
   void _on_CurrentPlayerTree_item_selected()
   {
     // figure out which tree item was selected
-    cslogger.Debug($"Server.cs: Handling debug UI tree clicked");
+    _serilogger.Debug($"Server.cs: Handling debug UI tree clicked");
     CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
     Tree UIPlayerTree = theCanvas.GetNode<Tree>("CurrentPlayerTree");
     TreeItem selected = UIPlayerTree.GetSelected();
-    cslogger.Debug($"Server.cs: Tree item selected: {selected.GetText(0)}");
+    _serilogger.Debug($"Server.cs: Tree item selected: {selected.GetText(0)}");
 
     // update the debug UI text field to match the selected item
     // this causes the debug UI to re-focus on the selected item
@@ -564,12 +558,12 @@ public class Server : Node
     CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
     LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
 
-    cslogger.Debug($"Server.cs: Join button pressed for UUID: {textField.Text}");
+    _serilogger.Debug($"Server.cs: Join button pressed for UUID: {textField.Text}");
 
     // don't do anything if this UUID already exists
     if (playerObjects.ContainsKey(textField.Text)) { return; }
 
-    cslogger.Debug($"Server.cs: Sending join with UUID: {textField.Text}");
+    _serilogger.Debug($"Server.cs: Sending join with UUID: {textField.Text}");
 
     // construct a join message from the text in the debug field
     SecurityCommandBuffer scb = new SecurityCommandBuffer();
@@ -587,14 +581,14 @@ public class Server : Node
     CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
     LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
 
-    cslogger.Debug($"Server.cs: Delete button pressed for UUID: {textField.Text}");
+    _serilogger.Debug($"Server.cs: Delete button pressed for UUID: {textField.Text}");
 
     // check if the playerobject dictionary has an entry for the uuid in the textfield
     Node2D selectedPlayerNode2D;
     if (playerObjects.TryGetValue(textField.Text, out selectedPlayerNode2D))
     {
       // it does, so remove that player
-      cslogger.Debug($"Server.cs: Removing player with UUID: {textField.Text}");
+      _serilogger.Debug($"Server.cs: Removing player with UUID: {textField.Text}");
       RemovePlayer(textField.Text);
     }
   }
@@ -613,24 +607,24 @@ public class Server : Node
 
     if (@event.IsActionPressed("zoom_in"))
     { 
-      cslogger.Debug("Server.cs: zoom viewport in!");
+      _serilogger.Debug("Server.cs: zoom viewport in!");
       float zoomN = CameraCurrentZoom.x - CameraZoomStepSize;
       zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
       CameraCurrentZoom.x = zoomN;
       CameraCurrentZoom.y = zoomN;
       playerCamera.Zoom = CameraCurrentZoom;
-      cslogger.Debug($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
+      _serilogger.Debug($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
     }
 
     if (@event.IsActionPressed("zoom_out"))
     {
-      cslogger.Debug("Server.cs zoom viewport out!");
+      _serilogger.Debug("Server.cs zoom viewport out!");
       float zoomN = CameraCurrentZoom.x + CameraZoomStepSize;
       zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
       CameraCurrentZoom.x = zoomN;
       CameraCurrentZoom.y = zoomN;
       playerCamera.Zoom = CameraCurrentZoom;
-      cslogger.Debug($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
+      _serilogger.Debug($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
     }
   }
 
@@ -697,7 +691,7 @@ public class Server : Node
     { 
       // update the UI tree
       DebugUIRefreshTimer = 0;
-      cslogger.Verbose($"Server.cs: Updating UI tree");
+      _serilogger.Verbose($"Server.cs: Updating UI tree");
       UpdateDebugUI();
     }
   }
