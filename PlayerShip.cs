@@ -5,6 +5,8 @@ using redhatgamedev.srt;
 
 public class PlayerShip : KinematicBody2D
 {
+  public Serilog.Core.Logger _serilogger;
+
   [Export]
   public float Thrust = 1f; // effective acceleration
 
@@ -35,8 +37,6 @@ public class PlayerShip : KinematicBody2D
 
   // for the server we're interfaced with
   Server MyServer;
-
-  CSLogger cslogger;
 
   // for now only one missile at a time
   SpaceMissile MyMissile = null;
@@ -81,7 +81,7 @@ public class PlayerShip : KinematicBody2D
 
   public void ExpireMissile() 
   { 
-    cslogger.Verbose($"Player.cs: removing missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
+    _serilogger.Verbose($"Player.cs: removing missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
     MyServer.RemoveMissile(MyMissile);
     MyMissile = null;
   }
@@ -91,21 +91,21 @@ public class PlayerShip : KinematicBody2D
     // only one missile allowed for now
     if (MyMissile != null) 
     { 
-      cslogger.Debug($"PlayerShip.cs: Missile for player {uuid} exists - skipping");
+      _serilogger.Debug($"PlayerShip.cs: Missile for player {uuid} exists - skipping");
       return; 
     }
 
     MyMissile = (SpaceMissile)MissileScene.Instance();
 
     // TODO: need to check for UUID collision
-    cslogger.Debug($"PlayerShip.cs: Supplied UUID is {missileUUID}");
+    _serilogger.Debug($"PlayerShip.cs: Supplied UUID is {missileUUID}");
     if (missileUUID != null)
       // use the suggested UUID
       { MyMissile.uuid = missileUUID; }
     else
       { MyMissile.uuid = Guid.NewGuid().ToString(); }
 
-    cslogger.Debug($"PlayerShip.cs: Missile UUID is {MyMissile.uuid}");
+    _serilogger.Debug($"PlayerShip.cs: Missile UUID is {MyMissile.uuid}");
 
     // missile should point in the same direction as the ship
     MyMissile.Rotation = Rotation;
@@ -130,10 +130,10 @@ public class PlayerShip : KinematicBody2D
     MyMissile.MyPlayer = this;
 
     // send the missile creation message
-    cslogger.Debug($"PlayerShip.cs: creating missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
+    _serilogger.Debug($"PlayerShip.cs: creating missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
     Node rootNode = GetNode<Node>("/root");
     rootNode.AddChild(MyMissile);
-    cslogger.Debug($"PlayerShip.cs: checking missilg: {MyMissile.uuid}");
+    _serilogger.Debug($"PlayerShip.cs: checking missilg: {MyMissile.uuid}");
 
     MyServer.InstantiateMissile(MyMissile);
   }
@@ -143,7 +143,7 @@ public class PlayerShip : KinematicBody2D
   {
     // initialize the logging configuration
     MyServer = GetNode<Server>("/root/Server");
-    cslogger = MyServer.cslogger;
+    _serilogger = MyServer._serilogger;
 
     Node2D shipThing = (Node2D)GetParent();
     Label playerIDLabel = (Label)shipThing.GetNode("Stat/IDLabel");
@@ -154,14 +154,14 @@ public class PlayerShip : KinematicBody2D
 
   public void TakeDamage(int Damage)
   {
-    cslogger.Debug($"Player.cs: {uuid}: Taking damage: {Damage}");
+    _serilogger.Debug($"Player.cs: {uuid}: Taking damage: {Damage}");
     HitPoints -= Damage;
-    cslogger.Debug($"Player.cs: {uuid}: Hitpoints: {HitPoints}");
+    _serilogger.Debug($"Player.cs: {uuid}: Hitpoints: {HitPoints}");
   }
 
   void RemovePlayer()
   {
-    cslogger.Verbose($"Player.cs: removing player: {uuid}");
+    _serilogger.Verbose($"Player.cs: removing player: {uuid}");
     MyServer.RemovePlayer(uuid);
   }
 
@@ -188,7 +188,7 @@ public class PlayerShip : KinematicBody2D
     positionLabel.Text = $"X: {GlobalPosition.x} Y: {GlobalPosition.y}";
     if (HitPoints <= 0)
     {
-      cslogger.Debug("Hitpoints zeroed! Remove the player!");
+      _serilogger.Debug("Hitpoints zeroed! Remove the player!");
       RemovePlayer();
     }
   }
@@ -201,11 +201,11 @@ public class PlayerShip : KinematicBody2D
 
     float rotation_dir = 0; // in case we need it
 
-    cslogger.Verbose($"{uuid}: handling physics");
+    _serilogger.Verbose($"{uuid}: handling physics");
     if (MovementQueue.Count > 0)
     {
       Vector2 thisMovement = (Vector2)MovementQueue.Dequeue();
-      cslogger.Verbose($"UUID: {uuid} X: {thisMovement.x} Y: {thisMovement.y}");
+      _serilogger.Verbose($"UUID: {uuid} X: {thisMovement.x} Y: {thisMovement.y}");
 
       if (thisMovement.y > 0)
       {
@@ -229,11 +229,11 @@ public class PlayerShip : KinematicBody2D
         rotation_dir = thisMovement.x;
       }
 
-      cslogger.Verbose($"UUID: {uuid} Velocity: {CurrentVelocity}");
+      _serilogger.Verbose($"UUID: {uuid} Velocity: {CurrentVelocity}");
 
     }
     Vector2 velocity =  -(Transform.y * CurrentVelocity);
-    cslogger.Verbose($"UUID: {uuid} Vector X: {velocity.x} Y: {velocity.y} ");
+    _serilogger.Verbose($"UUID: {uuid} Vector X: {velocity.x} Y: {velocity.y} ");
     Rotation += rotation_dir * RotationThrust * delta;
 
     // TODO: implement collision mechanics

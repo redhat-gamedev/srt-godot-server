@@ -7,7 +7,7 @@ public class SpaceMissile : Area2D
   // for the server we're interfaced with
   Server MyServer;
 
-  CSLogger cslogger;
+  public Serilog.Core.Logger _serilogger;
 
   public float MissileLife;
 
@@ -54,7 +54,7 @@ public class SpaceMissile : Area2D
   {  
     // initialize the logging configuration
     MyServer = GetNode<Server>("/root/Server");
-    cslogger = MyServer.cslogger;
+    _serilogger = MyServer._serilogger;
 
     // connect the hit signal to handling the hit
     Connect(nameof(Hit), this, "_HandleHit");
@@ -88,7 +88,7 @@ public class SpaceMissile : Area2D
 
   void _onSpaceMissileBodyEntered(Node body)
   {
-    cslogger.Debug("SpaceMissile.cs: Body entered!");
+    _serilogger.Debug("SpaceMissile.cs: Body entered!");
 
     if (body.GetType().Name != "PlayerShip")
     {
@@ -108,7 +108,7 @@ public class SpaceMissile : Area2D
 
   void _HandleHit(PlayerShip HitPlayer)
   {
-    cslogger.Debug("SpaceMissile.cs: Evaluating hit!");
+    _serilogger.Debug("SpaceMissile.cs: Evaluating hit!");
     QueueFree();
     MyPlayer.ExpireMissile();
     HitPlayer.TakeDamage(MissileDamage);

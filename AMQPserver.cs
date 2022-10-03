@@ -9,7 +9,7 @@ using redhatgamedev.srt;
 
 public class AMQPserver : Node
 {
-  CSLogger cslogger;
+  public Serilog.Core.Logger _serilogger;
 
   // TODO: make config file
   String url = "amqp://localhost:5672";
@@ -33,7 +33,7 @@ public class AMQPserver : Node
 
   void CommandReceived(IReceiverLink receiver, Message message)
   {
-    cslogger.Verbose("AMQPserver.cs: Event received!");
+    _serilogger.Verbose("AMQPserver.cs: Event received!");
     // accept the message so that it gets removed from the queue
     receiver.Accept(message);
 
@@ -50,7 +50,7 @@ public class AMQPserver : Node
 
   public void SendGameEvent(EntityGameEventBuffer egeb)
   {
-    cslogger.Verbose("AMQPserver.cs: Sending game event");
+    _serilogger.Verbose("AMQPserver.cs: Sending game event");
     // serialize it into a byte stream
     MemoryStream st = new MemoryStream();
     Serializer.Serialize<EntityGameEventBuffer>(st, egeb);
@@ -76,7 +76,7 @@ public class AMQPserver : Node
   // only used for debug
   public void SendCommand(CommandBuffer CommandBuffer)
   {
-    cslogger.Verbose("AMQPServer.cs: Sending command");
+    _serilogger.Verbose("AMQPServer.cs: Sending command");
 
     // serialize it into a byte stream
     MemoryStream st = new MemoryStream();
@@ -99,7 +99,7 @@ public class AMQPserver : Node
     // TODO: should probably wrap in some kind of try and catch failure to connect?
     //       is this even async?
     // TODO: include connection details
-    cslogger.Debug("AMQPserver.cs: Initializing AMQP connection");
+    _serilogger.Debug("AMQPserver.cs: Initializing AMQP connection");
     Connection.DisableServerCertValidation = true;
 
     //Trace.TraceLevel = TraceLevel.Frame;
@@ -140,7 +140,7 @@ public class AMQPserver : Node
     };
     commandInSender = new SenderLink(amqpSession, "srt-game-server-debug-sender", commandInTarget, null);
 
-    cslogger.Debug("AMQPserver.cs: Finished initializing AMQP connection");
+    _serilogger.Debug("AMQPserver.cs: Finished initializing AMQP connection");
   }
 
   public void LoadConfig()
@@ -158,20 +158,14 @@ public class AMQPserver : Node
 
     if (envAMQPUrl != null) url = envAMQPUrl;
 
-    cslogger.Info($"AMQPServer.cs: AMQP url is {url}");
+    _serilogger.Information($"AMQPServer.cs: AMQP url is {url}");
   }
 
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
-    // initialize the logging configuration
-    Node gdlogger = GetNode<Node>("/root/GDLogger");
-    gdlogger.Call("load_config", "res://Config/logger.cfg");
-
-    // TODO: logging config should be manipulateable from environment
-    cslogger = GetNode<CSLogger>("/root/CSLogger");
-
     MyServer = GetNode<Server>("/root/Server");
+    _serilogger = MyServer._serilogger;
     LoadConfig();
     InitializeAMQP();
   }
