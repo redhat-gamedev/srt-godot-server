@@ -6,7 +6,7 @@ uses Protobufs for messaging, and makes use of Git submodules in order to pull
 in the [Protobuf descriptions](https://github.com/redhat-gamedev/srt-protobufs).
 
 ## Prerequisites
-The game is currently being built with Linux and using Godot 3.4.2 with Mono.
+The game is currently being built with Linux and using Godot 3.4.4 with Mono.
 
 For debugging and development purposes you will want to be running an Artemis
 AMQP broker locally. 
