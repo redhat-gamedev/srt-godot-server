@@ -41,12 +41,24 @@ Then, to run the broker, in that same archive folder:
 ./srt/bin/artemis run
 ```
 
-### Protobuf Submodule
-You will need to run two commands after first cloning the server repo:
-
-```
-git submodule init
-git submodule update
-```
+### Protobufs and Protobuf Compilation
+This repo now uses submodules to point to the Networking/protobufs. Make sure to `--recurse-submodules` when you clone. If you've already cloned prior to this change, then run the following `git submodule update --init`.
 
 Make sure that you are using the same commit/tag in both the client and server.
+
+You will need the `dotnet` command line tool (or equivalent) in order to do this.
+
+Intstall the Protogen tooling:
+```
+dotnet tool install --global protobuf-net.Protogen --version 3.0.101
+```
+
+Then, in the `proto` folder:
+```
+protogen --csharp_out=. *.proto
+```
+
+### Debugging
+If you are debugging the Godot server and Godot client on the same machine you will want to do one of the following:
+* Option 1. Goto `Editor->Editor Settings...` and search for the `Remote Port` setting (it's under `Network->Debug'). Change the port so that the client and server use different ports.
+* Option 2. In the Server project, goto `Project->Export...` and export to your platform, then run the exported server.
