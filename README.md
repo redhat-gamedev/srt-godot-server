@@ -1,12 +1,15 @@
 # Space Ring Things - Godot Edition
-This repository holds both the game server and the game client for a Godot-based
-multiplayer game called "Space Ring Things".
+This repository is the Godot-based muliplayer server for the "Space Ring Things"
+game. For the game client, you will need to look at the [client repository](https://github.com/redhat-gamedev/srt-godot-client). The game also uses Protobufs for messaging, and makes use of Git submodules in order to pull in the [Protobuf descriptions](https://github.com/redhat-gamedev/srt-protobufs).
 
 ## Prerequisites
 The game is currently being built with Linux and using Godot 3.4.2 with Mono.
 
 For debugging and development purposes you will want to be running an Artemis
-AMQP broker locally. In order to get a specific IP for a local container running
+AMQP broker locally. 
+
+### Artemis via Podman
+In order to get a specific IP for a local container running
 Artemis, you will need to do this as the `root` system user. Podman or Docker 
 will both work, although the Docker syntax may be slightly different.
 
@@ -18,25 +21,27 @@ The above command will run an Artemis container and bind it to the Podman
 network on the IP address 10.88.0.2. It will expose ports 8161 (the management
 console) as well as 5672 (the AMQP port). 
 
-## Compiling Protobuf
-After making changes to the protocol buffer definitions, they need to be
-compiled to C# code. You will need the `dotnet` command line tool (or
-equivalent) in order to do this.
+### Artemis via Shell
+You can download the ActiveMQ Artemis broker from the [Apache download site](https://activemq.apache.org/components/artemis/download/). Currently we have tested 2.22.0
 
-Intstall the Protogen tooling:
-```
-dotnet tool install --global protobuf-net.Protogen --version 3.0.101
-```
-
-Then, in the `proto` folder:
+Expand the archive somewhere and then, in that archive folder:
 
 ```
-protogen --csharp_out=. *.proto
+./bin/artemis create --user admin --password admin --allow-anonymous srt./bin/artemis create
 ```
-## Ship size
-Roughly 20m long x 10m wide to start
-Currently ~64px at server view
 
-## Play area
-10km circle to start (500x ship length)
-Currently 32,000px across at server view
+Then, to run the broker, in that same archive folder:
+
+```
+./srt/bin/artemis run
+```
+
+## Protobuf Submodule
+You will need to run two commands after first cloning the server repo:
+
+```
+git submodule init
+git submodule update
+```
+
+Make sure that you are using the same commit/tag in both the client and server.
