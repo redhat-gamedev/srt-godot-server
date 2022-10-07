@@ -1,12 +1,17 @@
 # Space Ring Things - Godot Edition
 This repository is the Godot-based muliplayer server for the "Space Ring Things"
-game. For the game client, you will need to look at the [client repository](https://github.com/redhat-gamedev/srt-godot-client). The game also uses Protobufs for messaging, and makes use of Git submodules in order to pull in the [Protobuf descriptions](https://github.com/redhat-gamedev/srt-protobufs).
+game. For the game client, you will need to look at the [client
+repository](https://github.com/redhat-gamedev/srt-godot-client). The game also
+uses Protobufs for messaging, and makes use of Git submodules in order to pull
+in the [Protobuf descriptions](https://github.com/redhat-gamedev/srt-protobufs).
 
 ## Prerequisites
 The game is currently being built with Linux and using Godot 3.4.2 with Mono.
 
 For debugging and development purposes you will want to be running an Artemis
 AMQP broker locally. 
+
+You will also need the Protobuf repo as a submodule.
 
 ### Artemis via Podman
 In order to get a specific IP for a local container running
@@ -36,7 +41,7 @@ Then, to run the broker, in that same archive folder:
 ./srt/bin/artemis run
 ```
 
-## Protobuf Submodule
+### Protobuf Submodule
 You will need to run two commands after first cloning the server repo:
 
 ```
