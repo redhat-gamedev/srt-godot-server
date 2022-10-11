@@ -11,7 +11,7 @@ public class Server : Node
 
   Random rnd = new Random();
 
-  public Serilog.Core.Logger _serilogger = new LoggerConfiguration().MinimumLevel.Information().WriteTo.Console().CreateLogger();
+  public Serilog.Core.Logger _serilogger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
 
   AMQPserver MessageInterface;
 
@@ -61,8 +61,9 @@ public class Server : Node
   float PlayerDefaultRotationThrust = 1.5f;
   int PlayerDefaultHitPoints = 100;
   int PlayerDefaultMissileSpeed = 300;
-  float PlayerDefaultMissileLife = 4;
+  float PlayerDefaultMissileLife = 2;
   int PlayerDefaultMissileDamage = 25;
+  int PlayerDefaultMissileReloadTime = 2;
 
   /* END PLAYER DEFAULTS AND CONFIG */
 
@@ -327,12 +328,25 @@ public class Server : Node
     _serilogger.Debug("Server.cs: Processing shoot command!");
     DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
-    String playerUUID = cb.rawInputCommandBuffer.Uuid;
-    String missileUUID = dsricb.missileUUID;
-    Node2D playerRoot = playerObjects[playerUUID];
-
     // find the PlayerShip
+    String playerUUID = cb.rawInputCommandBuffer.Uuid;
+    Node2D playerRoot = playerObjects[playerUUID];
     PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
+    // TODO: should we perform a check here to see if we should bother firing
+    // the missile, or leave that to the playership.firemissile method alone?
+
+    String missileUUID;
+    // check if a missile uuid was suggested and, if not, generate one
+    if (dsricb.missileUUID == "")
+    { 
+      _serilogger.Debug("supplied missileUUID was null - generating");
+      missileUUID = System.Guid.NewGuid().ToString();
+    }
+    else
+    {
+      missileUUID = dsricb.missileUUID;
+    }
+    _serilogger.Debug($"missile uuid is: {missileUUID}");
 
     movePlayer.FireMissile(missileUUID);
   }
@@ -421,6 +435,7 @@ public class Server : Node
       PlayerDefaultMissileSpeed = (int) serverConfig.GetValue("player","missile_speed");
       PlayerDefaultMissileLife = Convert.ToSingle(serverConfig.GetValue("player","missile_life"));
       PlayerDefaultMissileDamage = (int) serverConfig.GetValue("player","missile_damage");
+      PlayerDefaultMissileReloadTime = (int) serverConfig.GetValue("player", "missile_reload");
     }
 
     // pull values from env -- will get nulls if any vars are not set
@@ -432,6 +447,7 @@ public class Server : Node
     String envMissileSpeed = System.Environment.GetEnvironmentVariable("SRT_MISSILE_SPEED");
     String envMissileLife = System.Environment.GetEnvironmentVariable("SRT_MISSILE_LIFE");
     String envMissileDamage = System.Environment.GetEnvironmentVariable("SRT_MISSILE_DAMAGE");
+    String envMissileReloadTime = System.Environment.GetEnvironmentVariable("SRT_MISSILE_RELOAD_TIME");
 
     // override any loaded config with env
     if (envSectorSize != null) SectorSize = Int32.Parse(envSectorSize);
@@ -442,16 +458,18 @@ public class Server : Node
     if (envMissileSpeed != null) PlayerDefaultMissileSpeed = int.Parse(envMissileSpeed);
     if (envMissileLife != null) PlayerDefaultMissileLife = float.Parse(envMissileLife);
     if (envMissileDamage != null) PlayerDefaultMissileDamage = int.Parse(envMissileDamage);
+    if (envMissileReloadTime != null) PlayerDefaultMissileReloadTime = int.Parse(envMissileReloadTime);
 
     // output the config state
-    _serilogger.Information($"Server.cs: Sector Size:      {SectorSize}");
-    _serilogger.Information($"Server.cs: Player Thrust:    {PlayerDefaultThrust}");
-    _serilogger.Information($"Server.cs: Player Speed:     {PlayerDefaultMaxSpeed}");
-    _serilogger.Information($"Server.cs: Player Rotation:  {PlayerDefaultRotationThrust}");
-    _serilogger.Information($"Server.cs: Player HP:        {PlayerDefaultHitPoints}");
-    _serilogger.Information($"Server.cs: Missile Speed:    {PlayerDefaultMissileSpeed}");
-    _serilogger.Information($"Server.cs: Missile Life:     {PlayerDefaultMissileLife}");
-    _serilogger.Information($"Server.cs: Missile Damage:   {PlayerDefaultMissileDamage}");
+    _serilogger.Information($"Server.cs: Sector Size:         {SectorSize}");
+    _serilogger.Information($"Server.cs: Player Thrust:       {PlayerDefaultThrust}");
+    _serilogger.Information($"Server.cs: Player Speed:        {PlayerDefaultMaxSpeed}");
+    _serilogger.Information($"Server.cs: Player Rotation:     {PlayerDefaultRotationThrust}");
+    _serilogger.Information($"Server.cs: Player HP:           {PlayerDefaultHitPoints}");
+    _serilogger.Information($"Server.cs: Missile Speed:       {PlayerDefaultMissileSpeed}");
+    _serilogger.Information($"Server.cs: Missile Life:        {PlayerDefaultMissileLife}");
+    _serilogger.Information($"Server.cs: Missile Damage:      {PlayerDefaultMissileDamage}");
+    _serilogger.Information($"Server.cs: Missile Reload Time: {PlayerDefaultMissileReloadTime}");
   }
 
   // Called when the node enters the scene tree for the first time.

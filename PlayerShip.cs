@@ -7,28 +7,20 @@ public class PlayerShip : KinematicBody2D
 {
   public Serilog.Core.Logger _serilogger;
 
-  [Export]
   public float Thrust = 1f; // effective acceleration
 
-  [Export]
   public float MaxSpeed = 5;
 
-  [Export]
   public float StopThreshold = 10f;
 
-  [Export]
   public float GoThreshold = 90f;
   
-  [Export]
   public float CurrentVelocity = 0;
 
-  [Export]
   public float RotationThrust = 1.5f;
 
-  [Export]
   public float CurrentRotation = 0;
 
-  [Export]
   public int HitPoints = 100;
 
   public Queue MovementQueue = new Queue();
@@ -41,13 +33,17 @@ public class PlayerShip : KinematicBody2D
   // for now only one missile at a time
   SpaceMissile MyMissile = null;
 
-  [Export] 
   public int MissileSpeed = 300;
   
-  [Export]
   public float MissileLife = 2;
 
-  [Export]
+  // the reload time is the minimum time between missile firings
+  // relevant when two players are very close to one another and
+  // prevents missile spamming
+  float MissileReloadTime = 2;
+  float MissileReloadCountdown;
+  bool MissileReady = true;
+
   public int MissileDamage = 25;
 
   Node2D shipThing = null;
@@ -81,7 +77,7 @@ public class PlayerShip : KinematicBody2D
 
   public void ExpireMissile() 
   { 
-    _serilogger.Verbose($"Player.cs: removing missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
+    _serilogger.Verbose($"PlayerShip.cs: removing missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
     MyServer.RemoveMissile(MyMissile);
     MyMissile = null;
   }
@@ -93,6 +89,13 @@ public class PlayerShip : KinematicBody2D
     { 
       _serilogger.Debug($"PlayerShip.cs: Missile for player {uuid} exists - skipping");
       return; 
+    }
+
+    // check if reload complete
+    if (MissileReady == false)
+    {
+      _serilogger.Debug($"PlayerShip.cs: player {uuid} not done with reload - skipping");
+      return;
     }
 
     MyMissile = (SpaceMissile)MissileScene.Instance();
@@ -133,9 +136,11 @@ public class PlayerShip : KinematicBody2D
     _serilogger.Debug($"PlayerShip.cs: creating missile {MyMissile.uuid} belongs to {MyMissile.MyPlayer.uuid}");
     Node rootNode = GetNode<Node>("/root");
     rootNode.AddChild(MyMissile);
-    _serilogger.Debug($"PlayerShip.cs: checking missilg: {MyMissile.uuid}");
-
     MyServer.InstantiateMissile(MyMissile);
+
+    // set the reload countdown
+    MissileReloadCountdown = MissileReloadTime;
+    MissileReady = false;
   }
 
   // Called when the node enters the scene tree for the first time.
@@ -154,15 +159,28 @@ public class PlayerShip : KinematicBody2D
 
   public void TakeDamage(int Damage)
   {
-    _serilogger.Debug($"Player.cs: {uuid}: Taking damage: {Damage}");
+    _serilogger.Debug($"PlayerShip.cs: {uuid}: Taking damage: {Damage}");
     HitPoints -= Damage;
-    _serilogger.Debug($"Player.cs: {uuid}: Hitpoints: {HitPoints}");
+    _serilogger.Debug($"PlayerShip.cs: {uuid}: Hitpoints: {HitPoints}");
   }
 
   void RemovePlayer()
   {
-    _serilogger.Verbose($"Player.cs: removing player: {uuid}");
+    _serilogger.Verbose($"PlayerShip.cs: removing player: {uuid}");
     MyServer.RemovePlayer(uuid);
+  }
+
+  void CheckMissileReload(float delta)
+  {
+    // nothing to check if we are already reloaded
+    if (MissileReady == true) { return; }
+
+    MissileReloadCountdown -= delta;
+    if (MissileReloadCountdown <= 0)
+    { 
+      _serilogger.Debug($"PlayerShip.cs: player {uuid} missile reload countdown complete");
+      MissileReady = true;
+    }
   }
 
   public override void _Process(float delta)
@@ -191,6 +209,8 @@ public class PlayerShip : KinematicBody2D
       _serilogger.Debug("Hitpoints zeroed! Remove the player!");
       RemovePlayer();
     }
+
+    CheckMissileReload(delta);
   }
   public override void _PhysicsProcess(float delta)
   {
