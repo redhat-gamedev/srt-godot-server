@@ -1,7 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using redhatgamedev.srt;
+using redhatgamedev.srt.v1;
 using Serilog;
 
 public class Server : Node
@@ -52,7 +52,7 @@ public class Server : Node
 
   Vector2 CameraCurrentZoom = new Vector2(1,1);
 
-  Queue<SecurityCommandBuffer> PlayerJoinQueue = new Queue<SecurityCommandBuffer>();
+  Queue<Security> PlayerJoinQueue = new Queue<Security>();
 
   /* PLAYER DEFAULTS AND CONFIG */
 
@@ -84,10 +84,10 @@ public class Server : Node
       PlayerShip thePlayer = entry.Value.GetNode<PlayerShip>("PlayerShip");
 
       // create the buffer for the specific player and send it
-      EntityGameEventBuffer egeb = thePlayer.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update);
+      GameEvent gameEvent = thePlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate);
 
       // send the player create event message
-      MessageInterface.SendGameEvent(egeb);
+      MessageInterface.SendGameEvent(gameEvent);
     }
 
     // TODO: we never send a create message for the missile
@@ -95,15 +95,17 @@ public class Server : Node
     {
       _serilogger.Verbose($"Server.cs: Processing missile: {missile.uuid}");
       // create the buffer for the missile
-      EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Update, missile.MyPlayer.uuid);
+      GameEvent gameEvent = missile.CreateMissileGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate, missile.MyPlayer.uuid);
 
       // send the buffer for the missile
-      MessageInterface.SendGameEvent(egeb);
+      MessageInterface.SendGameEvent(gameEvent);
     }
   }
 
   // called from the player model
   // should this be handled IN the player model itself?
+
+  // TODO: this seems to assume all removes are destroys, but what about simple leaves?
   public void RemovePlayer(String UUID)
   {
     _serilogger.Debug($"Server.cs: Removing player: {UUID}");
@@ -111,14 +113,14 @@ public class Server : Node
     PlayerShip thePlayer = thePlayerToRemove.GetNode<PlayerShip>("PlayerShip");
 
     // create the buffer for the specific player and send it
-    EntityGameEventBuffer egeb = thePlayer.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Destroy);
+    GameEvent gameEvent = thePlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeDestroy);
 
     // TODO: should this get wrapped with a try or something?
     thePlayerToRemove.QueueFree();
     playerObjects.Remove(UUID);
 
     // send the player create event message
-    MessageInterface.SendGameEvent(egeb);
+    MessageInterface.SendGameEvent(gameEvent);
   }
 
   public void RemoveMissile(SpaceMissile missile)
@@ -129,10 +131,10 @@ public class Server : Node
     missile.QueueFree();
 
     // create the buffer for the specific player and send it
-    EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Destroy, missile.MyPlayer.uuid);
+    GameEvent gameEvent = missile.CreateMissileGameEventBuffer(GameEvent.GameEventType.GameEventTypeDestroy, missile.MyPlayer.uuid);
 
     // send the player create event message
-    MessageInterface.SendGameEvent(egeb);
+    MessageInterface.SendGameEvent(gameEvent);
   }
 
   Hex TraverseSectors()
@@ -216,7 +218,7 @@ public class Server : Node
     _serilogger.Debug($"Server.cs: Sending missile creation message for missile {missile.uuid} player {missile.MyPlayer.uuid}");
 
     // create the protobuf for the player joining
-    EntityGameEventBuffer egeb = missile.CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Create, missile.MyPlayer.uuid);
+    GameEvent egeb = missile.CreateMissileGameEventBuffer(GameEvent.GameEventType.GameEventTypeCreate, missile.MyPlayer.uuid);
 
     // send the missile create event message
     MessageInterface.SendGameEvent(egeb);
@@ -299,37 +301,35 @@ public class Server : Node
     _serilogger.Information("Server.cs: Added player instance!");
 
     // create the protobuf for the player joining
-    EntityGameEventBuffer egeb = newPlayer.CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType.Create);
+    GameEvent egeb = newPlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeCreate);
 
     // send the player create event message
     MessageInterface.SendGameEvent(egeb);
   }
 
-  void ProcessMoveCommand(CommandBuffer cb)
+  void ProcessMoveCommand(Command cb)
   {
     _serilogger.Verbose("Server.cs: Processing move command!");
-    DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
-    String uuid = cb.rawInputCommandBuffer.Uuid;
+    String uuid = cb.Uuid;
     Node2D playerRoot = playerObjects[uuid];
 
     // find the PlayerShip
     PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
 
     // process thrust and rotation
-    Vector2 thrust = new Vector2(dsricb.pbv2Move.X, dsricb.pbv2Move.Y);
+    Vector2 thrust = new Vector2(cb.InputX, cb.InputY);
 
     // push the thrust input onto the player's array
     movePlayer.MovementQueue.Enqueue(thrust);
   }
 
-  void ProcessShootCommand(CommandBuffer cb)
+  void ProcessShootCommand(Command cb)
   {
     _serilogger.Debug("Server.cs: Processing shoot command!");
-    DualStickRawInputCommandBuffer dsricb = cb.rawInputCommandBuffer.dualStickRawInputCommandBuffer;
 
     // find the PlayerShip
-    String playerUUID = cb.rawInputCommandBuffer.Uuid;
+    String playerUUID = cb.Uuid;
     Node2D playerRoot = playerObjects[playerUUID];
     PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
     // TODO: should we perform a check here to see if we should bother firing
@@ -337,48 +337,31 @@ public class Server : Node
 
     String missileUUID;
     // check if a missile uuid was suggested and, if not, generate one
-    if (dsricb.missileUUID == "")
+    if (cb.MissileUuid == "")
     { 
       _serilogger.Debug("supplied missileUUID was null - generating");
       missileUUID = System.Guid.NewGuid().ToString();
     }
     else
     {
-      missileUUID = dsricb.missileUUID;
+      missileUUID = cb.MissileUuid;
     }
     _serilogger.Debug($"missile uuid is: {missileUUID}");
 
     movePlayer.FireMissile(missileUUID);
   }
 
-  void ProcessSecurityGameEvent(SecurityCommandBuffer securityCommandBuffer)
-  {
-    _serilogger.Verbose("Server.cs: Processing security command buffer!");
-    switch (securityCommandBuffer.Type)
-    {
-      case SecurityCommandBuffer.SecurityCommandBufferType.Join:
-        _serilogger.Information($"Server.cs: Join UUID: {securityCommandBuffer.Uuid}");
-        // TODO: buffer this because sometimes it collides with sending game
-        // updates and an exception is fired because the player collection is
-        // modified during looping over it
-        PlayerJoinQueue.Enqueue(securityCommandBuffer);
-        break;
-      case SecurityCommandBuffer.SecurityCommandBufferType.Leave:
-        _serilogger.Information($"Server.cs: Leave UUID: {securityCommandBuffer.Uuid}");
-        ProcessPlayerLeave(securityCommandBuffer);
-        break;
-    }
-  }
-
-  void ProcessPlayerLeave(SecurityCommandBuffer securityCommandBuffer)
+  void ProcessPlayerLeave(Security securityBuffer)
   {
     // find the player object
     Node2D playerShip;
-    if (playerObjects.TryGetValue(securityCommandBuffer.Uuid, out playerShip))
+    if (playerObjects.TryGetValue(securityBuffer.Uuid, out playerShip))
     {
       // we were able to find an object, so do the leave
-      _serilogger.Debug($"Server.cs: Leaving player with UUID: {securityCommandBuffer.Uuid}");
-      RemovePlayer(securityCommandBuffer.Uuid);
+      _serilogger.Debug($"Server.cs: Leaving player with UUID: {securityBuffer.Uuid}");
+
+      // TODO: should this be a specific leave instead of destroying a player?
+      RemovePlayer(securityBuffer.Uuid);
     }
 
   }
@@ -388,28 +371,51 @@ public class Server : Node
 
     while (PlayerJoinQueue.Count > 0)
     {
-      SecurityCommandBuffer scb = PlayerJoinQueue.Dequeue();
+      Security scb = PlayerJoinQueue.Dequeue();
       InstantiatePlayer(scb.Uuid);
     }
 
   }
 
-  public void ProcessGameEvent(CommandBuffer CommandBuffer)
+  public void ProcessGameEvent(Command CommandBuffer)
   {
-    switch (CommandBuffer.Type)
+    switch (CommandBuffer.command_type)
     {
-      case CommandBuffer.CommandBufferType.Security:
-        _serilogger.Verbose("Server.cs: Security event!");
-        ProcessSecurityGameEvent(CommandBuffer.securityCommandBuffer);
+      case Command.CommandType.CommandTypeMove:
+        _serilogger.Debug("Server.cs: Move command received");
+        ProcessMoveCommand(CommandBuffer);
         break;
-      case CommandBuffer.CommandBufferType.Rawinput:
-        _serilogger.Verbose("Server.cs: Raw input event!");
+      case Command.CommandType.CommandTypeShoot:
+        _serilogger.Debug("Server.cs: Shoot command received");
+        ProcessShootCommand(CommandBuffer);
+        break;
+      case Command.CommandType.CommandTypeUnspecified:
+        _serilogger.Error("Server.cs: Unspecified command received");
+        break; 
+    }
+  }
 
-        if (CommandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Move != null)
-        { ProcessMoveCommand(CommandBuffer); }
-
-        if (CommandBuffer.rawInputCommandBuffer.dualStickRawInputCommandBuffer.pbv2Shoot != null)
-        { ProcessShootCommand(CommandBuffer); }
+  public void ProcessSecurityEvent(Security securityBuffer)
+  {
+    switch (securityBuffer.security_type)
+    {
+      case Security.SecurityType.SecurityTypeUnspecified:
+        _serilogger.Error("Server.cs: Received an unspecified security event");
+        break;
+      case Security.SecurityType.SecurityTypeAnnounce:
+        _serilogger.Debug($"Server.cs: Received a client announce request from {securityBuffer.Uuid}");
+        // TODO: send announce details
+        break;
+      case Security.SecurityType.SecurityTypeJoin:
+        _serilogger.Debug($"Server.cs: Got player join for UUID: {securityBuffer.Uuid}");
+        // TODO: buffer this because sometimes it collides with sending game
+        // updates and an exception is fired because the player collection is
+        // modified during looping over it
+        PlayerJoinQueue.Enqueue(securityBuffer);
+        break;
+      case Security.SecurityType.SecurityTypeLeave:
+        _serilogger.Debug($"Server.cs: Got player leave for UUID: {securityBuffer.Uuid}");
+        ProcessPlayerLeave(securityBuffer);
         break;
     }
   }
@@ -539,35 +545,40 @@ public class Server : Node
     if (!playerObjects.ContainsKey(textField.Text)) { return; }
 
     // there was some kind of input, so construct a message to send to the server
-    CommandBuffer cb = new CommandBuffer();
-    cb.Type = CommandBuffer.CommandBufferType.Rawinput;
+    //CommandBuffer cb = new CommandBuffer();
+    //cb.Type = CommandBuffer.CommandBufferType.Rawinput;
 
-    RawInputCommandBuffer ricb = new RawInputCommandBuffer();
-    ricb.Type = RawInputCommandBuffer.RawInputCommandBufferType.Dualstick;
-    ricb.Uuid = textField.Text;
+    //RawInputCommandBuffer ricb = new RawInputCommandBuffer();
+    //ricb.Type = RawInputCommandBuffer.RawInputCommandBufferType.Dualstick;
+    //ricb.Uuid = textField.Text;
 
-    DualStickRawInputCommandBuffer dsricb = new DualStickRawInputCommandBuffer();
-    if ( (velocity.Length() > 0) || (shoot.Length() > 0) )
+    //DualStickRawInputCommandBuffer dsricb = new DualStickRawInputCommandBuffer();
+    //if ( (velocity.Length() > 0) || (shoot.Length() > 0) )
 
     if (velocity.Length() > 0)
     {
-      Box2d.PbVec2 b2dMove = new Box2d.PbVec2();
-      b2dMove.X = velocity.x;
-      b2dMove.Y = velocity.y;
-      dsricb.pbv2Move = b2dMove;
+      _serilogger.Debug("Server.cs: velocity length is greater than zero - move");
+      Command cb = new Command();
+      cb.command_type = Command.CommandType.CommandTypeMove;
+      cb.Uuid = textField.Text;
+
+      cb.InputX = (int)velocity.x;
+      cb.InputY = (int)velocity.y;
+      MessageInterface.SendCommand(cb);
     }
 
     if (shoot.Length() > 0)
     {
-      // TODO: make this actually depend on ship direction
-      Box2d.PbVec2 b2dShoot = new Box2d.PbVec2();
-      b2dShoot.Y = 1;
-      dsricb.pbv2Shoot = b2dShoot;
+      _serilogger.Debug("Server.cs: shoot length is greater than zero - shoot");
+      Command cb = new Command();
+      cb.command_type = Command.CommandType.CommandTypeShoot;
+      cb.Uuid = textField.Text;
+
+      cb.InputX = (int)shoot.x;
+      cb.InputY = (int)shoot.y;
+      MessageInterface.SendCommand(cb);
     }
 
-    ricb.dualStickRawInputCommandBuffer = dsricb;
-    cb.rawInputCommandBuffer = ricb;
-    MessageInterface.SendCommand(cb);
   }
 
   // TODO: should move debug to its own scene that's optionally loaded
@@ -579,19 +590,27 @@ public class Server : Node
     _serilogger.Debug($"Server.cs: Join button pressed for UUID: {textField.Text}");
 
     // don't do anything if this UUID already exists
-    if (playerObjects.ContainsKey(textField.Text)) { return; }
+    if (playerObjects.ContainsKey(textField.Text)) 
+    { 
+      _serilogger.Debug($"Server.cs: UUID already exists, doing nothing: {textField.Text}");
+      return; 
+    }
 
     _serilogger.Debug($"Server.cs: Sending join with UUID: {textField.Text}");
 
     // construct a join message from the text in the debug field
-    SecurityCommandBuffer scb = new SecurityCommandBuffer();
-    scb.Uuid = textField.Text;
-    scb.Type = SecurityCommandBuffer.SecurityCommandBufferType.Join;
+    //SecurityCommandBuffer scb = new SecurityCommandBuffer();
+    Security scb = new Security();
 
-    CommandBuffer cb = new CommandBuffer();
-    cb.Type = CommandBuffer.CommandBufferType.Security;
-    cb.securityCommandBuffer = scb;
-    MessageInterface.SendCommand(cb);
+    scb.Uuid = textField.Text;
+    scb.security_type = Security.SecurityType.SecurityTypeJoin;
+
+    MessageInterface.SendSecurity(scb);
+
+    //CommandBuffer cb = new CommandBuffer();
+    //cb.Type = CommandBuffer.CommandBufferType.Security;
+    //cb.securityCommandBuffer = scb;
+    //MessageInterface.SendCommand(cb);
   }
 
   void _on_DeleteAPlayer_pressed()

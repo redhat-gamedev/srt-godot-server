@@ -1,6 +1,6 @@
 using Godot;
 using System;
-using redhatgamedev.srt;
+using redhatgamedev.srt.v1;
 
 public class SpaceMissile : Area2D
 {
@@ -22,31 +22,40 @@ public class SpaceMissile : Area2D
   [Signal]
   public delegate void Hit(PlayerShip HitPlayer);
 
-  public EntityGameEventBuffer CreateMissileGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType BufferType, String OwnerUUID)
+  public GameEvent CreateMissileGameEventBuffer(GameEvent.GameEventType BufferType, String OwnerUUID)
   {
-    EntityGameEventBuffer egeb = new EntityGameEventBuffer();
-    egeb.Type = BufferType;
-    egeb.objectType = EntityGameEventBuffer.EntityGameEventBufferObjectType.Missile;
-    egeb.Uuid = uuid;
+    GameEvent gameEvent = new GameEvent();
+    //egeb.Type = BufferType;
+    gameEvent.game_event_type = BufferType;
 
-    Box2d.PbBody body = new Box2d.PbBody();
-    body.Type = Box2d.PbBodyType.Kinematic; // not sure if this should maybe be static
+    //egeb.objectType = EntityGameEventBuffer.EntityGameEventBufferObjectType.Missile;
+    gameEvent.game_object_type = GameEvent.GameObjectType.GameObjectTypeMissile;
+
+    //egeb.Uuid = uuid;
+    gameEvent.Uuid = uuid;
+
+    //Box2d.PbBody body = new Box2d.PbBody();
+    //body.Type = Box2d.PbBodyType.Kinematic; // not sure if this should maybe be static
 
     // need to use the GlobalPosition because the ship node ends up being offset
     // from the parent Node2D
-    body.Position = new Box2d.PbVec2 
-      { 
-        X = GlobalPosition.x,
-        Y = GlobalPosition.y
-      };
+    //body.Position = new Box2d.PbVec2 
+    //  { 
+    //    X = GlobalPosition.x,
+    //    Y = GlobalPosition.y
+    //  };
+    gameEvent.PositionX = (int)GlobalPosition.x;
+    gameEvent.PositionY = (int)GlobalPosition.y;
 
-    body.Angle = RotationDegrees;
-    body.AbsoluteVelocity = MissileSpeed;
+    //body.Angle = RotationDegrees;
+    gameEvent.Angle = RotationDegrees;
 
-    egeb.Body = body;
+    //body.AbsoluteVelocity = CurrentVelocity;
+    gameEvent.AbsoluteVelocity = MissileSpeed;
 
-    egeb.ownerUUID = OwnerUUID;
-    return egeb;
+    gameEvent.OwnerUuid = OwnerUUID;
+
+    return gameEvent;
   }
   
   // Called when the node enters the scene tree for the first time.

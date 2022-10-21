@@ -1,7 +1,7 @@
 using Godot;
 using System;
 using System.Collections;
-using redhatgamedev.srt;
+using redhatgamedev.srt.v1;
 
 public class PlayerShip : KinematicBody2D
 {
@@ -50,29 +50,40 @@ public class PlayerShip : KinematicBody2D
 
   PackedScene MissileScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
 
-  public EntityGameEventBuffer CreatePlayerGameEventBuffer(EntityGameEventBuffer.EntityGameEventBufferType BufferType)
+  public GameEvent CreatePlayerGameEventBuffer(GameEvent.GameEventType eventType)
   {
-    EntityGameEventBuffer egeb = new EntityGameEventBuffer();
-    egeb.Type = BufferType;
-    egeb.objectType = EntityGameEventBuffer.EntityGameEventBufferObjectType.Player;
-    egeb.Uuid = uuid;
+    //EntityGameEventBuffer egeb = new EntityGameEventBuffer();
+    GameEvent gameEvent = new GameEvent();
 
-    Box2d.PbBody body = new Box2d.PbBody();
-    body.Type = Box2d.PbBodyType.Kinematic; // not sure if this should maybe be static
+    //egeb.Type = BufferType;
+    gameEvent.game_event_type = eventType;
+
+    //egeb.objectType = EntityGameEventBuffer.EntityGameEventBufferObjectType.Player;
+    gameEvent.game_object_type = GameEvent.GameObjectType.GameObjectTypePlayer;
+
+    //egeb.Uuid = uuid;
+    gameEvent.Uuid = uuid;
+
+    //Box2d.PbBody body = new Box2d.PbBody();
+    //body.Type = Box2d.PbBodyType.Kinematic; // not sure if this should maybe be static
 
     // need to use the GlobalPosition because the ship node ends up being offset
     // from the parent Node2D
-    body.Position = new Box2d.PbVec2 
-      { 
-        X = GlobalPosition.x,
-        Y = GlobalPosition.y
-      };
+    //body.Position = new Box2d.PbVec2 
+    //  { 
+    //    X = GlobalPosition.x,
+    //    Y = GlobalPosition.y
+    //  };
+    gameEvent.PositionX = (int)GlobalPosition.x;
+    gameEvent.PositionY = (int)GlobalPosition.y;
 
-    body.Angle = RotationDegrees;
-    body.AbsoluteVelocity = CurrentVelocity;
+    //body.Angle = RotationDegrees;
+    gameEvent.Angle = RotationDegrees;
 
-    egeb.Body = body;
-    return egeb;
+    //body.AbsoluteVelocity = CurrentVelocity;
+    gameEvent.AbsoluteVelocity = CurrentVelocity;
+
+    return gameEvent;
   }
 
   public void ExpireMissile() 
