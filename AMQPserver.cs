@@ -100,7 +100,7 @@ public class AMQPserver : Node
   // only used for debug
   public void SendCommand(Command CommandBuffer)
   {
-    _serilogger.Debug("AMQPServer.cs: Sending command");
+    _serilogger.Verbose("AMQPServer.cs: Sending command");
 
     // serialize it into a byte stream
     MemoryStream st = new MemoryStream();
@@ -131,8 +131,27 @@ public class AMQPserver : Node
     Message msg = new Message(msgBytes);
 
     // don't care about the ack on our message being received
-    securityInSender.Send(msg, null, null);
+    securityOutSender.Send(msg, null, null);
+    // this should work but there's something weird and it blows up the 
+    // connection
+    //commandInSender.Send(msg);
+  }
 
+  // used for the debug client parts of the server
+  public void SendSecurityDebug(Security security)
+  {
+    _serilogger.Debug("AMQPServer.cs: Sending security command");
+
+    // serialize it into a byte stream
+    MemoryStream st = new MemoryStream();
+    Serializer.Serialize<Security>(st, security);
+
+    byte[] msgBytes = st.ToArray();
+
+    Message msg = new Message(msgBytes);
+
+    // don't care about the ack on our message being received
+    securityInSender.Send(msg, null, null);
     // this should work but there's something weird and it blows up the 
     // connection
     //commandInSender.Send(msg);
@@ -223,6 +242,7 @@ public class AMQPserver : Node
     securityInSender = new SenderLink(amqpSession, "srt-game-server-debug-security-sender", securityInTarget, null);
 
     _serilogger.Information("AMQPserver.cs: Finished initializing AMQP connection");
+
   }
 
   public void LoadConfig()

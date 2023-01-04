@@ -384,11 +384,11 @@ public class Server : Node
     switch (CommandBuffer.command_type)
     {
       case Command.CommandType.CommandTypeMove:
-        _serilogger.Debug("Server.cs: Move command received");
+        _serilogger.Verbose("Server.cs: Move command received");
         ProcessMoveCommand(CommandBuffer);
         break;
       case Command.CommandType.CommandTypeShoot:
-        _serilogger.Debug("Server.cs: Shoot command received");
+        _serilogger.Verbose("Server.cs: Shoot command received");
         ProcessShootCommand(CommandBuffer);
         break;
       case Command.CommandType.CommandTypeUnspecified:
@@ -406,7 +406,7 @@ public class Server : Node
         break;
       case Security.SecurityType.SecurityTypeAnnounce:
         _serilogger.Debug($"Server.cs: Received a client announce request from {securityBuffer.Uuid}");
-        // TODO: send announce details
+        SendAnnounceDetails(securityBuffer.Uuid);
         break;
       case Security.SecurityType.SecurityTypeJoin:
         _serilogger.Debug($"Server.cs: Got player join for UUID: {securityBuffer.Uuid}");
@@ -420,6 +420,26 @@ public class Server : Node
         ProcessPlayerLeave(securityBuffer);
         break;
     }
+  }
+
+  public void SendAnnounceDetails(String UUID)
+  {
+
+    // create the announce message
+    Security announceMessage = new Security();
+    announceMessage.security_type = Security.SecurityType.SecurityTypeAnnounce;
+    announceMessage.Uuid = UUID;
+    announceMessage.ShipThrust = PlayerDefaultThrust;
+    announceMessage.MaxSpeed = PlayerDefaultMaxSpeed;
+    announceMessage.RotationThrust = PlayerDefaultRotationThrust;
+    announceMessage.HitPoints = PlayerDefaultHitPoints;
+    announceMessage.MissileSpeed = PlayerDefaultMissileSpeed;
+    announceMessage.MissileLife = PlayerDefaultMissileLife;
+    announceMessage.MissileDamage = PlayerDefaultMissileDamage;
+    announceMessage.MissileReload = PlayerDefaultMissileReloadTime;
+
+    _serilogger.Debug($"Server.cs: Sending announce details to client {UUID}");
+    MessageInterface.SendSecurity(announceMessage);
   }
 
   public void LoadConfig()
@@ -648,7 +668,7 @@ public class Server : Node
     scb.Uuid = textField.Text;
     scb.security_type = Security.SecurityType.SecurityTypeJoin;
 
-    MessageInterface.SendSecurity(scb);
+    MessageInterface.SendSecurityDebug(scb);
 
     //CommandBuffer cb = new CommandBuffer();
     //cb.Type = CommandBuffer.CommandBufferType.Security;
