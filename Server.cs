@@ -428,6 +428,8 @@ public class Server : Node
     // save the config file load status to err to check which value to use (config or env) later
     Error err = serverConfig.Load("Config/server.cfg");
 
+    int DesiredLogLevel = 3;
+
     // if the file was loaded successfully, read the vars
     if (err == Error.Ok) 
     {
@@ -442,6 +444,7 @@ public class Server : Node
       PlayerDefaultMissileLife = Convert.ToSingle(serverConfig.GetValue("player","missile_life"));
       PlayerDefaultMissileDamage = (int) serverConfig.GetValue("player","missile_damage");
       PlayerDefaultMissileReloadTime = (int) serverConfig.GetValue("player", "missile_reload");
+      DesiredLogLevel = (int) serverConfig.GetValue("game", "log_level");
     }
 
     // pull values from env -- will get nulls if any vars are not set
@@ -454,6 +457,7 @@ public class Server : Node
     String envMissileLife = System.Environment.GetEnvironmentVariable("SRT_MISSILE_LIFE");
     String envMissileDamage = System.Environment.GetEnvironmentVariable("SRT_MISSILE_DAMAGE");
     String envMissileReloadTime = System.Environment.GetEnvironmentVariable("SRT_MISSILE_RELOAD_TIME");
+    String envLogLevel = System.Environment.GetEnvironmentVariable("SRT_LOG_LEVEL");
 
     // override any loaded config with env
     if (envSectorSize != null) SectorSize = Int32.Parse(envSectorSize);
@@ -465,6 +469,39 @@ public class Server : Node
     if (envMissileLife != null) PlayerDefaultMissileLife = float.Parse(envMissileLife);
     if (envMissileDamage != null) PlayerDefaultMissileDamage = int.Parse(envMissileDamage);
     if (envMissileReloadTime != null) PlayerDefaultMissileReloadTime = int.Parse(envMissileReloadTime);
+    if (envLogLevel != null) DesiredLogLevel = int.Parse(envLogLevel);
+
+    switch (DesiredLogLevel) 
+    {
+      case 0:
+        _serilogger.Information("Server.cs: Setting minimum log level to: Fatal");
+        _serilogger = new LoggerConfiguration().MinimumLevel.Fatal().WriteTo.Console().CreateLogger();
+        break;
+      case 1:
+        _serilogger.Information("Server.cs: Setting minimum log level to: Error");
+        _serilogger = new LoggerConfiguration().MinimumLevel.Error().WriteTo.Console().CreateLogger();
+        break;
+      case 2:
+        _serilogger.Information("Server.cs: Setting minimum log level to: Warning");
+        _serilogger = new LoggerConfiguration().MinimumLevel.Warning().WriteTo.Console().CreateLogger();
+        break;
+      case 3:
+        _serilogger.Information("Server.cs: Setting minimum log level to: Information");
+        _serilogger = new LoggerConfiguration().MinimumLevel.Information().WriteTo.Console().CreateLogger();
+        break;
+      case 4:
+        _serilogger.Information("Server.cs: Setting minimum log level to: Debug");
+        _serilogger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
+        break;
+      case 5:
+        _serilogger.Information("Server.cs: Setting minimum log level to: Verbose");
+        _serilogger = new LoggerConfiguration().MinimumLevel.Verbose().WriteTo.Console().CreateLogger();
+        break;
+      default:
+        _serilogger.Information("Server.cs: Unknown log level specified, defaulting to: Information");
+        _serilogger = new LoggerConfiguration().MinimumLevel.Information().WriteTo.Console().CreateLogger();
+        break;
+    }
 
     // output the config state
     _serilogger.Information($"Server.cs: Sector Size:         {SectorSize}");
