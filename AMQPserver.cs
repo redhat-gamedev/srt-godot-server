@@ -146,12 +146,22 @@ public class AMQPserver : Node
     _serilogger.Information("AMQPserver.cs: Initializing AMQP connection");
     Connection.DisableServerCertValidation = true;
 
-    //Trace.TraceLevel = TraceLevel.Frame;
-    //Trace.TraceListener = (l, f, a) => Console.WriteLine(DateTime.Now.ToString("[hh:mm:ss.fff]") + " " + string.Format(f, a));
-    factory = new ConnectionFactory();
-    Address address = new Address(url);
-    amqpConnection = await factory.CreateAsync(address);
-    amqpSession = new Session(amqpConnection);
+    try
+    {
+      //Trace.TraceLevel = TraceLevel.Frame;
+      //Trace.TraceListener = (l, f, a) => Console.WriteLine(DateTime.Now.ToString("[hh:mm:ss.fff]") + " " + string.Format(f, a));
+      factory = new ConnectionFactory();
+      Address address = new Address(url);
+      amqpConnection = await factory.CreateAsync(address);
+      amqpSession = new Session(amqpConnection);
+    }
+    catch (Exception ex)
+    {
+      _serilogger.Error("ServerConnection.cs: AMQP connection/session failed for " + url);
+      _serilogger.Error($"ServerConnection.cs: {ex.Message}");
+      // TODO: let player know
+      return;      
+    }
 
     // set up queues and topics ////////////////////////////////////////////////
     // topics are multicast

@@ -13,10 +13,6 @@ config_version=4
 config/name="srt-godot-test"
 run/main_scene="res://Server.tscn"
 
-[autoload]
-
-AMQPserver="*res://AMQPserver.cs"
-
 [display]
 
 window/size/width=1920

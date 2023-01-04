@@ -11,7 +11,9 @@ public class Server : Node
 
   Random rnd = new Random();
 
-  public Serilog.Core.Logger _serilogger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
+  //levelSwitch = new LoggingLevelSwitch();
+  Serilog.Core.LoggingLevelSwitch levelSwitch = new Serilog.Core.LoggingLevelSwitch();
+  public Serilog.Core.Logger _serilogger;
 
   AMQPserver MessageInterface;
 
@@ -475,31 +477,31 @@ public class Server : Node
     {
       case 0:
         _serilogger.Information("Server.cs: Setting minimum log level to: Fatal");
-        _serilogger = new LoggerConfiguration().MinimumLevel.Fatal().WriteTo.Console().CreateLogger();
+        levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Fatal;
         break;
       case 1:
         _serilogger.Information("Server.cs: Setting minimum log level to: Error");
-        _serilogger = new LoggerConfiguration().MinimumLevel.Error().WriteTo.Console().CreateLogger();
+        levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Error;
         break;
       case 2:
         _serilogger.Information("Server.cs: Setting minimum log level to: Warning");
-        _serilogger = new LoggerConfiguration().MinimumLevel.Warning().WriteTo.Console().CreateLogger();
+        levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Warning;
         break;
       case 3:
         _serilogger.Information("Server.cs: Setting minimum log level to: Information");
-        _serilogger = new LoggerConfiguration().MinimumLevel.Information().WriteTo.Console().CreateLogger();
+        levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Information;
         break;
       case 4:
         _serilogger.Information("Server.cs: Setting minimum log level to: Debug");
-        _serilogger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
+        levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Debug;
         break;
       case 5:
         _serilogger.Information("Server.cs: Setting minimum log level to: Verbose");
-        _serilogger = new LoggerConfiguration().MinimumLevel.Verbose().WriteTo.Console().CreateLogger();
+        levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Verbose;
         break;
       default:
         _serilogger.Information("Server.cs: Unknown log level specified, defaulting to: Information");
-        _serilogger = new LoggerConfiguration().MinimumLevel.Information().WriteTo.Console().CreateLogger();
+        levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Debug;
         break;
     }
 
@@ -518,9 +520,13 @@ public class Server : Node
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
+    levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Information;
+    _serilogger = new LoggerConfiguration().MinimumLevel.ControlledBy(levelSwitch).WriteTo.Console().CreateLogger();
     _serilogger.Information("Server.cs: Space Ring Things (SRT) Game Server");
+    _serilogger.Information("Server.cs: Attempting AMQP initialization");
 
-    MessageInterface = GetNode<AMQPserver>("/root/AMQPserver");
+    MessageInterface = new AMQPserver();
+    AddChild(MessageInterface);
 
     _serilogger.Information("Server.cs: Beginning game server");
 
