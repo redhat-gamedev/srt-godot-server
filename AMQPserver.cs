@@ -143,7 +143,7 @@ public class AMQPserver : Node
     // TODO: should probably wrap in some kind of try and catch failure to connect?
     //       is this even async?
     // TODO: include connection details
-    _serilogger.Debug("AMQPserver.cs: Initializing AMQP connection");
+    _serilogger.Information("AMQPserver.cs: Initializing AMQP connection");
     Connection.DisableServerCertValidation = true;
 
     //Trace.TraceLevel = TraceLevel.Frame;
@@ -212,7 +212,7 @@ public class AMQPserver : Node
     };
     securityInSender = new SenderLink(amqpSession, "srt-game-server-debug-security-sender", securityInTarget, null);
 
-    _serilogger.Debug("AMQPserver.cs: Finished initializing AMQP connection");
+    _serilogger.Information("AMQPserver.cs: Finished initializing AMQP connection");
   }
 
   public void LoadConfig()
