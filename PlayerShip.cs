@@ -82,6 +82,8 @@ public class PlayerShip : KinematicBody2D
 
     //body.AbsoluteVelocity = CurrentVelocity;
     gameEvent.AbsoluteVelocity = CurrentVelocity;
+    
+    gameEvent.HitPoints = HitPoints;
 
     return gameEvent;
   }
