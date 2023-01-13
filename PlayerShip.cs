@@ -50,6 +50,8 @@ public class PlayerShip : KinematicBody2D
 
   PackedScene MissileScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
 
+  bool QueuedForRemoval = false; // used when this player is about to be removed from play
+
   public GameEvent CreatePlayerGameEventBuffer(GameEvent.GameEventType eventType)
   {
     //EntityGameEventBuffer egeb = new EntityGameEventBuffer();
@@ -175,12 +177,19 @@ public class PlayerShip : KinematicBody2D
     _serilogger.Debug($"PlayerShip.cs: {uuid}: Taking damage: {Damage}");
     HitPoints -= Damage;
     _serilogger.Debug($"PlayerShip.cs: {uuid}: Hitpoints: {HitPoints}");
+
+    if (HitPoints <= 0)
+    {
+      _serilogger.Debug($"PlayerShip.cs: Hitpoints zeroed for {uuid}! Remove the player!");
+      QueuedForRemoval = true;
+      RemovePlayer();
+    }
   }
 
   void RemovePlayer()
   {
-    _serilogger.Verbose($"PlayerShip.cs: removing player: {uuid}");
-    MyServer.RemovePlayer(uuid);
+    _serilogger.Debug($"PlayerShip.cs: Enqueuing player removal: {uuid}");
+    MyServer.PlayerRemoveQueue.Enqueue(uuid);
   }
 
   void CheckMissileReload(float delta)
@@ -198,6 +207,8 @@ public class PlayerShip : KinematicBody2D
 
   public override void _Process(float delta)
   {
+
+    if (QueuedForRemoval) return;
 
     if (shipThing == null) shipThing = (Node2D)GetParent();
 
@@ -217,11 +228,6 @@ public class PlayerShip : KinematicBody2D
     linearVelocityLabel.Text = $"Vel: {CurrentVelocity}";
     hitPointsLabel.Text = $"HP: {HitPoints}";
     positionLabel.Text = $"X: {GlobalPosition.x} Y: {GlobalPosition.y}";
-    if (HitPoints <= 0)
-    {
-      _serilogger.Debug("Hitpoints zeroed! Remove the player!");
-      RemovePlayer();
-    }
 
     CheckMissileReload(delta);
   }
