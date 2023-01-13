@@ -32,7 +32,7 @@ You can download the ActiveMQ Artemis broker from the [Apache download site](htt
 Expand the archive somewhere and then, in that archive folder:
 
 ```
-./bin/artemis create --user admin --password admin --allow-anonymous srt./bin/artemis create
+./bin/artemis create --user admin --password admin --allow-anonymous srt/bin/artemis
 ```
 
 Then, to run the broker, in that same archive folder:
@@ -50,7 +50,8 @@ You will need the `dotnet` command line tool (or equivalent) in order to do this
 
 Intstall the Protogen tooling:
 ```
-dotnet tool install --global protobuf-net.Protogen --version 3.0.101
+dotnet tool install --global protobuf-net.Protogen --version 3.0.101 (dotnet sdk 5)
+dotnet tool install --global protobuf-net.Protogen --version 3.1.25 (dotnet sdk 6)
 ```
 
 Then, in the `proto` folder:
