@@ -56,6 +56,8 @@ public class Server : Node
 
   Queue<Security> PlayerJoinQueue = new Queue<Security>();
 
+  public Queue<String> PlayerRemoveQueue = new Queue<String>();
+
   /* PLAYER DEFAULTS AND CONFIG */
 
   float PlayerDefaultThrust = 1f;
@@ -370,15 +372,20 @@ public class Server : Node
 
   void ProcessPlayerJoins()
   {
-
     while (PlayerJoinQueue.Count > 0)
     {
       Security scb = PlayerJoinQueue.Dequeue();
       InstantiatePlayer(scb.Uuid);
     }
-
   }
 
+  void ProcessPlayerRemoval()
+  {
+    while (PlayerRemoveQueue.Count > 0)
+    {
+      RemovePlayer(PlayerRemoveQueue.Dequeue());
+    }
+  }
   public void ProcessGameEvent(Command CommandBuffer)
   {
     switch (CommandBuffer.command_type)
@@ -731,6 +738,8 @@ public class Server : Node
   // Called every frame. 'delta' is the elapsed time since the previous frame.
   public override void _Process(float delta)
   {
+
+    ProcessPlayerRemoval();
 
     // loosely based on: https://godotengine.org/qa/116981/object-follow-mouse-in-radius
     // get the UUID of the text box and set that ship's camera to active
