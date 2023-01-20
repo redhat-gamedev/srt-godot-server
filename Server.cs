@@ -84,7 +84,7 @@ public class Server : Node
   {
     _serilogger.Verbose("Server.cs: Sending updates about game state to clients");
 
-    Godot.Collections.Array players = GetTree().GetNodesInGroup("player_ships");
+    Godot.Collections.Array players = GetNodesFromGroup("player_ships");
     foreach (PlayerShip player in players)
     {
       _serilogger.Verbose($"Server.cs: Sending update for player: {player.uuid}");
@@ -94,20 +94,6 @@ public class Server : Node
       // send the event for the player
       MessageInterface.SendGameEvent(gameEvent);
     }
-
-    //foreach (KeyValuePair<String, Node2D> entry in playerObjects)
-    //{
-    //  _serilogger.Verbose($"Server.cs: Sending update for player: {entry.Key}");
-
-    //  // find the PlayerShip
-    //  PlayerShip thePlayer = entry.Value.GetNode<PlayerShip>("PlayerShip");
-
-    //  // create the buffer for the specific player and send it
-    //  GameEvent gameEvent = thePlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate);
-
-    //  // send the player create event message
-    //  MessageInterface.SendGameEvent(gameEvent);
-    //}
 
     // TODO: we never send a create message for the missile
     foreach (SpaceMissile missile in GetTree().GetNodesInGroup("missiles"))
@@ -627,10 +613,11 @@ public class Server : Node
     UIPlayerTree.Clear();
     TreeItem UIPlayerTreeRoot = UIPlayerTree.CreateItem();
 
-    foreach (KeyValuePair<String, Node2D> entry in playerObjects)
+    Godot.Collections.Array players = GetNodesFromGroup("player_ships");
+    foreach (PlayerShip player in players)
     {
-      TreeItem player = UIPlayerTree.CreateItem(UIPlayerTreeRoot);
-      player.SetText(0, entry.Key);
+      TreeItem playerTreeItem = UIPlayerTree.CreateItem(UIPlayerTreeRoot);
+      playerTreeItem.SetText(0, player.uuid);
     }
   }
 
@@ -834,6 +821,12 @@ public class Server : Node
       playerCamera.Zoom = CameraCurrentZoom;
       _serilogger.Debug($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
     }
+  }
+
+  // helper functions
+  Godot.Collections.Array GetNodesFromGroup(string groupName)
+  {
+    return GetTree().GetNodesInGroup(groupName);
   }
 
 }
