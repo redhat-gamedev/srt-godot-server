@@ -84,19 +84,30 @@ public class Server : Node
   {
     _serilogger.Verbose("Server.cs: Sending updates about game state to clients");
 
-    foreach (KeyValuePair<String, Node2D> entry in playerObjects)
+    Godot.Collections.Array players = GetTree().GetNodesInGroup("player_ships");
+    foreach (PlayerShip player in players)
     {
-      _serilogger.Verbose($"Server.cs: Sending update for player: {entry.Key}");
+      _serilogger.Verbose($"Server.cs: Sending update for player: {player.uuid}");
+      // create the buffer for the specific player
+      GameEvent gameEvent = player.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate);
 
-      // find the PlayerShip
-      PlayerShip thePlayer = entry.Value.GetNode<PlayerShip>("PlayerShip");
-
-      // create the buffer for the specific player and send it
-      GameEvent gameEvent = thePlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate);
-
-      // send the player create event message
+      // send the event for the player
       MessageInterface.SendGameEvent(gameEvent);
     }
+
+    //foreach (KeyValuePair<String, Node2D> entry in playerObjects)
+    //{
+    //  _serilogger.Verbose($"Server.cs: Sending update for player: {entry.Key}");
+
+    //  // find the PlayerShip
+    //  PlayerShip thePlayer = entry.Value.GetNode<PlayerShip>("PlayerShip");
+
+    //  // create the buffer for the specific player and send it
+    //  GameEvent gameEvent = thePlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate);
+
+    //  // send the player create event message
+    //  MessageInterface.SendGameEvent(gameEvent);
+    //}
 
     // TODO: we never send a create message for the missile
     foreach (SpaceMissile missile in GetTree().GetNodesInGroup("missiles"))
@@ -260,6 +271,7 @@ public class Server : Node
     newPlayer.MissileDamage = PlayerDefaultMissileDamage;
 
     playerObjects.Add(UUID, playerShipThingInstance);
+    newPlayer.AddToGroup("player_ships");
 
     // if there are more than two players, it means we are now at the point
     // where we have to start calculating ring things
@@ -466,7 +478,7 @@ public class Server : Node
 
     if (velocity.Length() > 0)
     {
-      _serilogger.Debug("Server.cs: velocity length is greater than zero - move");
+      _serilogger.Verbose("Server.cs: velocity length is greater than zero - move");
       Command cb = new Command();
       cb.command_type = Command.CommandType.CommandTypeMove;
       cb.Uuid = textField.Text;
@@ -478,7 +490,7 @@ public class Server : Node
 
     if (shoot.Length() > 0)
     {
-      _serilogger.Debug("Server.cs: shoot length is greater than zero - shoot");
+      _serilogger.Verbose("Server.cs: shoot length is greater than zero - shoot");
       Command cb = new Command();
       cb.command_type = Command.CommandType.CommandTypeShoot;
       cb.Uuid = textField.Text;
