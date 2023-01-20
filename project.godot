@@ -59,6 +59,7 @@ zoom_out={
 
 [mono]
 
+project/assembly_name="srt-godot-test"
 export/export_assemblies_inside_pck=false
 
 [physics]
