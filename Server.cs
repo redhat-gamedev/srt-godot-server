@@ -194,10 +194,10 @@ public class Server : Node
     // re-initilize the sector map
     sectorMap.Clear();
 
-    foreach (KeyValuePair<String, Node2D> entry in playerObjects)
+    Godot.Collections.Array players = GetNodesFromGroup("player_ships");
+    foreach (PlayerShip player in players)
     {
-      PlayerShip thePlayer = entry.Value.GetNode<PlayerShip>("PlayerShip");
-      FractionalHex theHex = HexLayout.PixelToHex(new Point(thePlayer.GlobalPosition.x, thePlayer.GlobalPosition.y));
+      FractionalHex theHex = HexLayout.PixelToHex(new Point(player.GlobalPosition.x, player.GlobalPosition.y));
       Hex theRoundedHex = theHex.HexRound();
 
       // the key can be axial coordinates
