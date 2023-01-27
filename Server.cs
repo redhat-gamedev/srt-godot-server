@@ -26,6 +26,8 @@ public class Server : Node
 
   public Layout HexLayout;
 
+  int HexRatio;
+
   // starting ring radius is zero - just one sector
   [Export]
   public int RingRadius = 0;
@@ -34,6 +36,9 @@ public class Server : Node
   // it only gets updated when a new player joins
   [Export]
   Dictionary<String, int> sectorMap = new Dictionary<string, int>();
+
+  [Export]
+  Dictionary<String, Node2D> sectorNodes = new Dictionary<String, Node2D>();
 
   [Export]
   public Int32 StarFieldRadiusPixels;
@@ -77,14 +82,19 @@ public class Server : Node
 
   // SCENE PRELOADS
   PackedScene PlayerShipThing = (PackedScene)ResourceLoader.Load("res://Player.tscn");
+  PackedScene aSector = (PackedScene)ResourceLoader.Load("res://Sector.tscn");
 
   // END SCENE PRELOADS
+
+  Label RingSize;
+  Node SectorMap;
+  Node Players;
 
   void SendGameUpdates()
   {
     _serilogger.Verbose("Server.cs: Sending updates about game state to clients");
 
-    Godot.Collections.Array players = GetNodesFromGroup("player_ships");
+    Godot.Collections.Array players = _GetNodesFromGroup("player_ships");
     foreach (PlayerShip player in players)
     {
       _serilogger.Verbose($"Server.cs: Sending update for player: {player.uuid}");
@@ -121,9 +131,8 @@ public class Server : Node
     GameEvent gameEvent = thePlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeDestroy);
 
     // TODO: should this get wrapped with a try or something?
-    thePlayerToRemove.QueueFree();
-
     playerObjects.Remove(UUID);
+    thePlayerToRemove.QueueFree();
 
     // send the player create event message
     MessageInterface.SendGameEvent(gameEvent);
@@ -146,6 +155,7 @@ public class Server : Node
   Hex TraverseSectors()
   {
     Hex theCenter = new Hex(0, 0, 0);
+    _serilogger.Debug($"Server.cs: Traversing the sectors");
 
     // based around the function from
     // https://www.redblobgames.com/grids/hexagons/#rings
@@ -162,21 +172,28 @@ public class Server : Node
         for (int j = 0; j < RingRadius; j++)
         {
           string theKey = $"{theSector.q},{theSector.r}";
+          _serilogger.Debug($"Server.cs: Checking sector {theKey}");
           if (sectorMap.ContainsKey(theKey))
           {
             // the sector map has the sector we're looking at, so verify how many
             // players are in it. if there are less than two players, use it.
-            if (sectorMap[theKey] < 2) { return theSector; }
+            if (sectorMap[theKey] < 2) 
+            { 
+              _serilogger.Debug($"Server.cs: Less than two players ({sectorMap[theKey]}) in {theKey}, so choosing this one");
+              return theSector; 
+            }
           }
           else
           {
             // the sector map doesn't have the key for the sector we're looking
             // at. this means the sector definitely has zero players in it.
+            _serilogger.Debug($"Server.cs: {theKey} not found in sectorMap, so choosing this one");
             return theSector;
           }
 
           // if we get here, it means that the current sector is full, so move
           // to the next neighbor
+          _serilogger.Debug($"Server.cs: {theKey} is full with {sectorMap[theKey]} players, moving on");
           theSector = theSector.Neighbor(i);
         }
       }
@@ -185,6 +202,7 @@ public class Server : Node
     // we got to the end of the rings without finding a sector, so make a new
     // ring and return that ring's first sector
 
+    _serilogger.Debug($"Server.cs: Completed traversing ring {RingRadius}, incrementing and returning 0th sector of new ring");
     RingRadius++;
     return theCenter.Add(Hex.directions[4].Scale(RingRadius));
   }
@@ -192,29 +210,68 @@ public class Server : Node
   void UpdateSectorMap()
   {
     // re-initilize the sector map
+    // clear the dictionary for rebuild
     sectorMap.Clear();
+    _serilogger.Debug($"Server.cs: Updating sector map");
 
-    Godot.Collections.Array players = GetNodesFromGroup("player_ships");
+    // delete all of the drawn sectors unless there's no players
+    Godot.Collections.Array players = _GetNodesFromGroup("player_ships");
+    if (players.Count != 0) {
+      _serilogger.Debug($"Server.cs: There are players in the player_ships group, so clearing the sector nodes");
+      sectorNodes.Clear();
+      foreach (Node sector in _GetNodesFromGroup("sectors"))
+      {
+        sector.QueueFree();
+      }
+    }
+
+    _serilogger.Debug($"Server.cs: Currently {players.Count} players in 'player_ships' group");
     foreach (PlayerShip player in players)
     {
+      _serilogger.Debug($"Server.cs: Updating sector map for {player.uuid}");
       FractionalHex theHex = HexLayout.PixelToHex(new Point(player.GlobalPosition.x, player.GlobalPosition.y));
       Hex theRoundedHex = theHex.HexRound();
 
       // the key can be axial coordinates
       String theSectorKey = $"{theRoundedHex.q},{theRoundedHex.r}";
+      _serilogger.Debug($"Server.cs: player {player.uuid} sector is {theSectorKey}");
 
       // check if the key exists in the dict
       if (sectorMap.ContainsKey(theSectorKey))
       {
         // increment it if it does
         sectorMap[theSectorKey] += 1;
+        _serilogger.Debug($"Server.cs: {theSectorKey}: {sectorMap[theSectorKey]}");
       }
       else
       {
         // initialize it to 1 if it doesn't
+        _serilogger.Debug($"Server.cs: {theSectorKey} didn't exist, initializing to 1");
         sectorMap[theSectorKey] = 1;
+        _serilogger.Debug($"Server.cs: {theSectorKey}: {sectorMap[theSectorKey]}");
       }
     }
+
+  }
+
+  void DrawSectorMap()
+  {
+    // recreate the sector nodes for all the present keys
+    _serilogger.Debug($"Server.cs: Iterating over sectormap's keys to place sector nodes");
+    foreach (string sector in sectorMap.Keys)
+    {
+      _serilogger.Debug($"Server.cs: Current sector is {sector}");
+      String[] sector_parts = sector.Split(',');
+      _serilogger.Debug($"Server.cs: Sector part 0: {sector_parts[0]} 1: {sector_parts[1]}");
+
+      // q + r + s must equal zero
+      int q = sector_parts[0].ToInt();
+      int r = sector_parts[1].ToInt();
+      int s = 0 - q - r;
+      _serilogger.Debug($"Server.cs: calculated s is {s}");
+      _CreateSector(new Hex(q,r,s));
+    }
+
   }
 
   public void InstantiateMissile(SpaceMissile missile)
@@ -237,13 +294,13 @@ public class Server : Node
     // because we don't know where that player will go until we traverse the
     // existing sectors, and because the physics process will kick in as soon
     // as the node is created
+    _serilogger.Debug($"Server.cs: Instantiating player {UUID}");
     UpdateSectorMap();
 
     // start with the center
     Hex theSector = new Hex(0, 0, 0);
 
     Node2D playerShipThingInstance = (Node2D)PlayerShipThing.Instance();
-
     PlayerShip newPlayer = playerShipThingInstance.GetNode<PlayerShip>("PlayerShip");
     newPlayer.uuid = UUID;
 
@@ -256,8 +313,11 @@ public class Server : Node
     newPlayer.MissileLife = PlayerDefaultMissileLife;
     newPlayer.MissileDamage = PlayerDefaultMissileDamage;
 
+    _serilogger.Debug($"Server.cs: Adding {UUID} to playerObjects");
     playerObjects.Add(UUID, playerShipThingInstance);
     newPlayer.AddToGroup("player_ships");
+
+    _serilogger.Debug($"Server.cs: Current count of playerObjects: {playerObjects.Count}");
 
     // if there are more than two players, it means we are now at the point
     // where we have to start calculating ring things
@@ -268,28 +328,51 @@ public class Server : Node
       // to increase it, otherwise things will already blow up
       if (RingRadius == 0)
       {
+        _serilogger.Debug($"Server.cs: playerObjects count > 2 and ringradius == 0 so incrementing");
         RingRadius++;
       }
 
       // it's possible that we have insufficient players in sector 0,0,0, so
       // check that first for funzos
-      if (sectorMap["0,0"] < 2)
-      {
-        // do nothing since we already assigned the sector to use to 0,0,0
-      }
 
-      else
+      int qty;
+      if (sectorMap.TryGetValue("0,0", out qty))
       {
-        theSector = TraverseSectors();
+        if (qty < 2)
+        {
+          // do nothing since we already assigned the sector to use to 0,0,0
+          _serilogger.Debug($"Server.cs: Insufficient players in sector 0 so will add player there");
+        }
+        else
+        {
+          theSector = TraverseSectors();
+        }
       }
     }
+    
+    _serilogger.Debug($"Server.cs: Selected sector for player {UUID} is {theSector.q},{theSector.r}");
+
+    // increment whatever sector this new player is going into
+    string sector_key = theSector.q + "," + theSector.r;
+
+    if (sectorMap.ContainsKey(sector_key))
+    {
+      sectorMap[sector_key] += 1;
+    }
+    else
+    {
+      sectorMap[sector_key] = 1;
+    }
+    _serilogger.Debug($"Server.cs: Sector {theSector.q},{theSector.r} now has {sectorMap[sector_key]}");
 
     // reset the starfield radius - should also move the center
     StarFieldRadiusPixels = (RingRadius + 1) * SectorSize * 2;
+    _serilogger.Debug($"Server.cs: New starfield radius is: {StarFieldRadiusPixels}");
 
     // now that the sector to insert the player has been selected, find its
     // pixel center
     Point theSectorCenter = HexLayout.HexToPixel(theSector);
+    _serilogger.Debug($"Server.cs: Center of selected sector: {theSectorCenter.x},{theSectorCenter.y}");
 
     // TODO: need to ensure players are not on top of one another for real.  we
     // will spawn two players into a sector to start, so we should check if
@@ -300,18 +383,22 @@ public class Server : Node
     int theMin = (int)(SectorSize * 0.3);
     int xOffset = rnd.Next(-1 * theMin, theMin);
     int yOffset = rnd.Next(-1 * theMin, theMin);
+    int finalX = (Int32)theSectorCenter.x + xOffset;
+    int finalY = (Int32)theSectorCenter.y + yOffset;
+    _serilogger.Debug($"Server.cs: Placing player at {finalX},{finalY}");
 
     playerShipThingInstance.GlobalPosition = new Vector2(x: (Int32)theSectorCenter.x + xOffset,
                                 y: (Int32)theSectorCenter.y + yOffset);
 
-    AddChild(playerShipThingInstance);
-    _serilogger.Information("Server.cs: Added player instance!");
+    Players.AddChild(playerShipThingInstance);
+    _serilogger.Information($"Server.cs: Added player {UUID} instance!");
 
     // create the protobuf for the player joining
     GameEvent egeb = newPlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeCreate);
 
     // send the player create event message
     MessageInterface.SendGameEvent(egeb);
+    DrawSectorMap();
   }
 
   void ProcessMoveCommand(Command cb)
@@ -319,16 +406,18 @@ public class Server : Node
     _serilogger.Verbose("Server.cs: Processing move command!");
 
     String uuid = cb.Uuid;
-    Node2D playerRoot = playerObjects[uuid];
+    Node2D playerRoot;
+    if (playerObjects.TryGetValue(uuid, out playerRoot))
+    {
+      // find the PlayerShip
+      PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
 
-    // find the PlayerShip
-    PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
+      // process thrust and rotation
+      Vector2 thrust = new Vector2(cb.InputX, cb.InputY);
 
-    // process thrust and rotation
-    Vector2 thrust = new Vector2(cb.InputX, cb.InputY);
-
-    // push the thrust input onto the player's array
-    movePlayer.MovementQueue.Enqueue(thrust);
+      // push the thrust input onto the player's array
+      movePlayer.MovementQueue.Enqueue(thrust);
+    }
   }
 
   void ProcessShootCommand(Command cb)
@@ -613,12 +702,14 @@ public class Server : Node
     UIPlayerTree.Clear();
     TreeItem UIPlayerTreeRoot = UIPlayerTree.CreateItem();
 
-    Godot.Collections.Array players = GetNodesFromGroup("player_ships");
+    Godot.Collections.Array players = _GetNodesFromGroup("player_ships");
     foreach (PlayerShip player in players)
     {
       TreeItem playerTreeItem = UIPlayerTree.CreateItem(UIPlayerTreeRoot);
       playerTreeItem.SetText(0, player.uuid);
     }
+
+    RingSize.Text = RingRadius.ToString();
   }
 
   // Godot Builtins
@@ -632,6 +723,7 @@ public class Server : Node
     _serilogger.Information("Server.cs: Attempting AMQP initialization");
 
     MessageInterface = new AMQPserver();
+    MessageInterface.Name = "AMQP_Server";
     AddChild(MessageInterface);
 
     _serilogger.Information("Server.cs: Beginning game server");
@@ -645,7 +737,11 @@ public class Server : Node
     // initialize the hexboard layout
     HexLayout = new Layout(Layout.flat, new Point(SectorSize, SectorSize), new Point(0, 0));
 
-    //  GetTree().Quit();
+    // draw the zero sector
+
+    RingSize = GetNode<Label>("DebugUI/RingSizeContainer/RingSize");
+    SectorMap = GetNode("SectorMap");
+    Players = GetNode("Players");
   }
 
   // Called every frame. 'delta' is the elapsed time since the previous frame.
@@ -802,31 +898,47 @@ public class Server : Node
 
     if (@event.IsActionPressed("zoom_in"))
     {
-      _serilogger.Debug("Server.cs: zoom viewport in!");
+      _serilogger.Verbose("Server.cs: zoom viewport in!");
       float zoomN = CameraCurrentZoom.x - CameraZoomStepSize;
       zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
       CameraCurrentZoom.x = zoomN;
       CameraCurrentZoom.y = zoomN;
       playerCamera.Zoom = CameraCurrentZoom;
-      _serilogger.Debug($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
+      _serilogger.Verbose($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
     }
 
     if (@event.IsActionPressed("zoom_out"))
     {
-      _serilogger.Debug("Server.cs zoom viewport out!");
+      _serilogger.Verbose("Server.cs zoom viewport out!");
       float zoomN = CameraCurrentZoom.x + CameraZoomStepSize;
       zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
       CameraCurrentZoom.x = zoomN;
       CameraCurrentZoom.y = zoomN;
       playerCamera.Zoom = CameraCurrentZoom;
-      _serilogger.Debug($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
+      _serilogger.Verbose($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
     }
   }
 
   // helper functions
-  Godot.Collections.Array GetNodesFromGroup(string groupName)
+  Godot.Collections.Array _GetNodesFromGroup(string groupName)
   {
     return GetTree().GetNodesInGroup(groupName);
+  }
+
+  void _CreateSector(Hex theSectorHex)
+  {
+    _serilogger.Debug($"Server.cs: Creating sector node at {theSectorHex.q},{theSectorHex.r}");
+
+    Sector newSector = aSector.Instance<Sector>();
+
+    // scale by the sector size given the width of the hex polygon is 50px
+    HexRatio = (SectorSize / 50) * 2;
+    newSector.ApplyScale(new Vector2(HexRatio, HexRatio));
+    newSector.SectorLabel = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
+    Point sector_center = HexLayout.HexToPixel(theSectorHex);
+    newSector.Position = new Vector2((float)sector_center.x, (float)sector_center.y);
+    newSector.AddToGroup("sectors");
+    SectorMap.AddChild(newSector);
   }
 
 }

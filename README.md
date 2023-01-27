@@ -32,7 +32,7 @@ You can download the ActiveMQ Artemis broker from the [Apache download site](htt
 Expand the archive somewhere and then, in that archive folder:
 
 ```
-./bin/artemis create --user admin --password admin --allow-anonymous srt./bin/artemis create
+./bin/artemis create --user admin --password admin --allow-anonymous srt
 ```
 
 Then, to run the broker, in that same archive folder:
