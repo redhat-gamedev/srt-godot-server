@@ -38,6 +38,29 @@ margin_bottom = 326.0
 focus_mode = 0
 hide_folding = true
 
+[node name="RingSizeContainer" type="HBoxContainer" parent="DebugUI"]
+margin_left = 9.0
+margin_top = 333.0
+margin_right = 167.0
+margin_bottom = 373.0
+
+[node name="RingSizePrompt" type="Label" parent="DebugUI/RingSizeContainer"]
+margin_top = 13.0
+margin_right = 65.0
+margin_bottom = 27.0
+text = "Ring Size: "
+
+[node name="RingSize" type="Label" parent="DebugUI/RingSizeContainer"]
+margin_left = 69.0
+margin_top = 13.0
+margin_right = 93.0
+margin_bottom = 27.0
+text = "XXX"
+
+[node name="SectorMap" type="Node" parent="."]
+
+[node name="Players" type="Node" parent="."]
+
 [connection signal="pressed" from="DebugUI/JoinAPlayer" to="." method="_on_JoinAPlayer_pressed"]
 [connection signal="pressed" from="DebugUI/DeleteAPlayer" to="." method="_on_DeleteAPlayer_pressed"]
 [connection signal="item_selected" from="DebugUI/CurrentPlayerTree" to="." method="_on_CurrentPlayerTree_item_selected"]

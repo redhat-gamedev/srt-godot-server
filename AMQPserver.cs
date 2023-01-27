@@ -51,7 +51,7 @@ public class AMQPserver : Node
     Command commandBuffer;
     commandBuffer = Serializer.Deserialize<Command>(st);
 
-    MyServer.ProcessGameEvent(commandBuffer);
+    MyServer.GameEventQueue.Enqueue(commandBuffer);
   }
 
   void SecurityReceived(IReceiverLink receiver, Message message)
@@ -68,7 +68,7 @@ public class AMQPserver : Node
     Security securityBuffer;
     securityBuffer = Serializer.Deserialize<Security>(st);
 
-    MyServer.ProcessSecurityEvent(securityBuffer);
+    MyServer.SecurityEventQueue.Enqueue(securityBuffer);
   }
 
 
