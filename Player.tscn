@@ -1,9 +1,16 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=4 format=2]
 
 [ext_resource path="res://images/ship.png" type="Texture" id=1]
 [ext_resource path="res://PlayerShip.cs" type="Script" id=2]
 
-[node name="ShipThings" type="Node2D"]
+[sub_resource type="RectangleShape2D" id=1]
+extents = Vector2( 39.5, 41.5 )
+
+[node name="ShipThings" type="Area2D"]
+
+[node name="ClickBox" type="CollisionShape2D" parent="."]
+position = Vector2( -0.5, 6.5 )
+shape = SubResource( 1 )
 
 [node name="Stat" type="Node2D" parent="."]
 

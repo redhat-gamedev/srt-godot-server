@@ -48,9 +48,24 @@ public class PlayerShip : KinematicBody2D
 
   Node2D shipThing = null;
 
+  Layout theLayout;
+
   PackedScene MissileScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
 
   bool QueuedForRemoval = false; // used when this player is about to be removed from play
+
+  bool cameraCurrent = false;
+  Camera2D myCamera;
+
+  Label angularVelocityLabel;
+  Label linearVelocityLabel;
+  Label hitPointsLabel;
+  Label positionLabel;
+  Label hexLabel;
+
+  // used by the debug UI to show which player has the camera focus
+  public bool isFocused = false;
+  Sprite shipSprite;
 
   public GameEvent CreatePlayerGameEventBuffer(GameEvent.GameEventType eventType)
   {
@@ -170,6 +185,18 @@ public class PlayerShip : KinematicBody2D
 
     // TODO: deal with really long UUIDs
     playerIDLabel.Text = uuid;
+
+    myCamera = GetNode<Camera2D>("Camera2D");
+    shipSprite = GetNode<Sprite>("Sprite");
+
+    // TODO: we are doing instant rotation so probably should rename this
+    angularVelocityLabel = (Label)shipThing.GetNode("Stat/AngularVelocity");
+    linearVelocityLabel = (Label)shipThing.GetNode("Stat/LinearVelocity");
+    hitPointsLabel = (Label)shipThing.GetNode("Stat/HitPoints");
+    positionLabel = (Label)shipThing.GetNode("Stat/Position");
+    hexLabel = (Label)shipThing.GetNode("Stat/Hex");
+
+    theLayout = MyServer.HexLayout;
   }
 
   public void TakeDamage(int Damage)
@@ -205,6 +232,12 @@ public class PlayerShip : KinematicBody2D
     }
   }
 
+  public void UpdateFocused()
+  {
+    if (isFocused) shipSprite.Modulate = new Color(4,4,4,1);
+    else shipSprite.Modulate = new Color(1,1,1,1);
+  }
+
   public override void _Process(float delta)
   {
 
@@ -212,15 +245,7 @@ public class PlayerShip : KinematicBody2D
 
     if (shipThing == null) shipThing = (Node2D)GetParent();
 
-    // TODO: we are doing instant rotation so probably should rename this
-    Label angularVelocityLabel = (Label)shipThing.GetNode("Stat/AngularVelocity");
-    Label linearVelocityLabel = (Label)shipThing.GetNode("Stat/LinearVelocity");
-    Label hitPointsLabel = (Label)shipThing.GetNode("Stat/HitPoints");
-    Label positionLabel = (Label)shipThing.GetNode("Stat/Position");
-    Label hexLabel = (Label)shipThing.GetNode("Stat/Hex");
-
     // figure out the hex from the pixel position
-    Layout theLayout = MyServer.HexLayout;
     FractionalHex theHex = theLayout.PixelToHex(new Point(GlobalPosition.x, GlobalPosition.y));
     hexLabel.Text = $"q: {theHex.HexRound().q}, r: {theHex.HexRound().r}, s: {theHex.HexRound().s}";
 
@@ -230,6 +255,7 @@ public class PlayerShip : KinematicBody2D
     positionLabel.Text = $"X: {GlobalPosition.x} Y: {GlobalPosition.y}";
 
     CheckMissileReload(delta);
+    UpdateFocused();
   }
   public override void _PhysicsProcess(float delta)
   {

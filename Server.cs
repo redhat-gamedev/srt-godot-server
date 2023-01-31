@@ -87,9 +87,15 @@ public class Server : Node
   // END SCENE PRELOADS
 
   Label RingSize;
+  Label StarFieldRadiusSize;
   Node SectorMap;
   Node Players;
   StarFieldRadius StarFieldRing;
+  VBoxContainer theCanvas;
+  LineEdit playerID;
+  Tree uiPlayerTree;
+  Camera2D rtsCamera;
+  Camera2D currentCamera;
 
   void SendGameUpdates()
   {
@@ -307,7 +313,7 @@ public class Server : Node
     // start with the center
     Hex theSector = new Hex(0, 0, 0);
 
-    Node2D playerShipThingInstance = (Node2D)PlayerShipThing.Instance();
+    Area2D playerShipThingInstance = (Area2D)PlayerShipThing.Instance();
     PlayerShip newPlayer = playerShipThingInstance.GetNode<PlayerShip>("PlayerShip");
     newPlayer.uuid = UUID;
 
@@ -396,6 +402,9 @@ public class Server : Node
 
     playerShipThingInstance.GlobalPosition = new Vector2(x: (Int32)theSectorCenter.x + xOffset,
                                 y: (Int32)theSectorCenter.y + yOffset);
+
+    // connect the ship thing input signal so that we can catch when a ship was clicked in the debug UI
+    playerShipThingInstance.Connect("input_event", this, "_on_ShipThings_input_event", new Godot.Collections.Array {newPlayer});
 
     Players.AddChild(playerShipThingInstance);
     _serilogger.Information($"Server.cs: Added player {UUID} instance!");
@@ -539,13 +548,9 @@ public class Server : Node
 
   void ProcessInputEvent(Vector2 velocity, Vector2 shoot)
   {
-    // fetch the UUID from the text field to use in the message
-    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
-    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
-
     // if there is no player in the dictionary, do nothing
     // this catches accidental keyboard hits
-    if (!playerObjects.ContainsKey(textField.Text)) { return; }
+    if (!playerObjects.ContainsKey(playerID.Text)) { return; }
 
     // there was some kind of input, so construct a message to send to the server
     //CommandBuffer cb = new CommandBuffer();
@@ -563,7 +568,7 @@ public class Server : Node
       _serilogger.Verbose("Server.cs: velocity length is greater than zero - move");
       Command cb = new Command();
       cb.command_type = Command.CommandType.CommandTypeMove;
-      cb.Uuid = textField.Text;
+      cb.Uuid = playerID.Text;
 
       cb.InputX = (int)velocity.x;
       cb.InputY = (int)velocity.y;
@@ -575,7 +580,7 @@ public class Server : Node
       _serilogger.Verbose("Server.cs: shoot length is greater than zero - shoot");
       Command cb = new Command();
       cb.command_type = Command.CommandType.CommandTypeShoot;
-      cb.Uuid = textField.Text;
+      cb.Uuid = playerID.Text;
 
       cb.InputX = (int)shoot.x;
       cb.InputY = (int)shoot.y;
@@ -702,21 +707,19 @@ public class Server : Node
 
   void UpdateDebugUI()
   {
-    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
-    Tree UIPlayerTree = theCanvas.GetNode<Tree>("CurrentPlayerTree");
-
     // clear the list and then iterate over all players to rebuild it
-    UIPlayerTree.Clear();
-    TreeItem UIPlayerTreeRoot = UIPlayerTree.CreateItem();
+    uiPlayerTree.Clear();
+    TreeItem UIPlayerTreeRoot = uiPlayerTree.CreateItem();
 
     Godot.Collections.Array players = _GetNodesFromGroup("player_ships");
     foreach (PlayerShip player in players)
     {
-      TreeItem playerTreeItem = UIPlayerTree.CreateItem(UIPlayerTreeRoot);
+      TreeItem playerTreeItem = uiPlayerTree.CreateItem(UIPlayerTreeRoot);
       playerTreeItem.SetText(0, player.uuid);
     }
 
     RingSize.Text = RingRadius.ToString();
+    StarFieldRadiusSize.Text = StarFieldRadiusPixels.ToString();
   }
 
   // Godot Builtins
@@ -744,9 +747,13 @@ public class Server : Node
     // initialize the hexboard layout
     HexLayout = new Layout(Layout.flat, new Point(SectorSize, SectorSize), new Point(0, 0));
 
-    // draw the zero sector
-
-    RingSize = GetNode<Label>("DebugUI/RingSizeContainer/RingSize");
+    // grab needed elements for later
+    rtsCamera = GetNode<Camera2D>("RTS-Camera2D");
+    theCanvas = GetNode<VBoxContainer>("DebugUI/DebugStack");
+    playerID = theCanvas.GetNode<LineEdit>("PlayerID");
+    uiPlayerTree = theCanvas.GetNode<Tree>("CurrentPlayerTree");
+    RingSize = theCanvas.GetNode<Label>("RingSizeContainer/RingSize");
+    StarFieldRadiusSize = theCanvas.GetNode<Label>("StarfieldSizeContainer/StarfieldRadiusSize");
     SectorMap = GetNode("SectorMap");
     Players = GetNode("Players");
     StarFieldRing = GetNode<StarFieldRadius>("StarFieldRadius");
@@ -760,17 +767,6 @@ public class Server : Node
     ProcessSecurityEvents();
     ProcessGameEvents();
     ProcessPlayerRemoval();
-
-    // loosely based on: https://godotengine.org/qa/116981/object-follow-mouse-in-radius
-    // get the UUID of the text box and set that ship's camera to active
-    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
-    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
-    if (playerObjects.ContainsKey(textField.Text))
-    {
-      Node2D playerForCamera = playerObjects[textField.Text];
-      Camera2D playerCamera = playerForCamera.GetNode<Camera2D>("PlayerShip/Camera2D");
-      if (!playerCamera.Current) { playerCamera.MakeCurrent(); }
-    }
 
     // look for any inputs, subsequently sent a control message
     var velocity = Vector2.Zero; // The player's movement direction.
@@ -827,15 +823,39 @@ public class Server : Node
   }
 
   // Internal Signals
+  void _on_FocusAPlayer_pressed()
+  {
+    // loosely based on: https://godotengine.org/qa/116981/object-follow-mouse-in-radius
+    // get the UUID of the text box and set that ship's camera to active
+    if (playerObjects.ContainsKey(playerID.Text))
+    {
+      Node2D playerForCamera = playerObjects[playerID.Text];
+      Camera2D playerCamera = playerForCamera.GetNode<Camera2D>("PlayerShip/Camera2D");
+      if (!playerCamera.Current) 
+      { 
+        // clear the RTS camera's current
+        rtsCamera.ClearCurrent();
+        playerCamera.MakeCurrent(); 
+        playerCamera.GetParent<PlayerShip>().isFocused = true;
+        currentCamera = playerCamera;
+      }
+    }
+  }
+  
+  void _on_UnFocusAPlayer_pressed()
+  {
+    currentCamera.ClearCurrent();
+    currentCamera.GetParent<PlayerShip>().isFocused = false;
+    currentCamera = null;
+    rtsCamera.MakeCurrent();
+  }
 
   // TODO: improve via signal connection passing in the tree as an arg
   void _on_CurrentPlayerTree_item_selected()
   {
     // figure out which tree item was selected
     _serilogger.Debug($"Server.cs: Handling debug UI tree clicked");
-    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
-    Tree UIPlayerTree = theCanvas.GetNode<Tree>("CurrentPlayerTree");
-    TreeItem selected = UIPlayerTree.GetSelected();
+    TreeItem selected = uiPlayerTree.GetSelected();
     _serilogger.Debug($"Server.cs: Tree item selected: {selected.GetText(0)}");
 
     // update the debug UI text field to match the selected item
@@ -847,85 +867,118 @@ public class Server : Node
   // TODO: should move debug to its own scene that's optionally loaded
   void _on_JoinAPlayer_pressed()
   {
-    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
-    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
-
-    _serilogger.Debug($"Server.cs: Join button pressed for UUID: {textField.Text}");
+    _serilogger.Debug($"Server.cs: Join button pressed for UUID: {playerID.Text}");
 
     // don't do anything if this UUID already exists
-    if (playerObjects.ContainsKey(textField.Text))
+    if (playerObjects.ContainsKey(playerID.Text))
     {
-      _serilogger.Debug($"Server.cs: UUID already exists, doing nothing: {textField.Text}");
+      _serilogger.Debug($"Server.cs: UUID already exists, doing nothing: {playerID.Text}");
       return;
     }
 
-    _serilogger.Debug($"Server.cs: Sending join with UUID: {textField.Text}");
+    _serilogger.Debug($"Server.cs: Sending join with UUID: {playerID.Text}");
 
     // construct a join message from the text in the debug field
     //SecurityCommandBuffer scb = new SecurityCommandBuffer();
     Security scb = new Security();
 
-    scb.Uuid = textField.Text;
+    scb.Uuid = playerID.Text;
     scb.security_type = Security.SecurityType.SecurityTypeJoin;
 
     MessageInterface.SendSecurityDebug(scb);
-
-    //CommandBuffer cb = new CommandBuffer();
-    //cb.Type = CommandBuffer.CommandBufferType.Security;
-    //cb.securityCommandBuffer = scb;
-    //MessageInterface.SendCommand(cb);
   }
 
   void _on_DeleteAPlayer_pressed()
   {
-    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
-    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
-
-    _serilogger.Debug($"Server.cs: Delete button pressed for UUID: {textField.Text}");
+    _serilogger.Debug($"Server.cs: Delete button pressed for UUID: {playerID.Text}");
 
     // check if the playerobject dictionary has an entry for the uuid in the textfield
     Node2D selectedPlayerNode2D;
-    if (playerObjects.TryGetValue(textField.Text, out selectedPlayerNode2D))
+    if (playerObjects.TryGetValue(playerID.Text, out selectedPlayerNode2D))
     {
       // it does, so remove that player
-      _serilogger.Debug($"Server.cs: Removing player with UUID: {textField.Text}");
-      RemovePlayer(textField.Text);
+      _serilogger.Debug($"Server.cs: Removing player with UUID: {playerID.Text}");
+      RemovePlayer(playerID.Text);
+    }
+  }
+
+  void _on_AddRandomPlayer_pressed()
+  {
+    _serilogger.Debug($"Server.cs: Add random button pressed");
+    string newPlayerUUID = System.Guid.NewGuid().ToString().Remove(0, 29);
+    _serilogger.Information($"Server.cs: Add random player {newPlayerUUID}");
+    Security scb = new Security();
+
+    scb.Uuid = newPlayerUUID;
+    scb.security_type = Security.SecurityType.SecurityTypeJoin;
+
+    MessageInterface.SendSecurityDebug(scb);
+  }
+
+  void _on_ShipThings_input_event(Node viewport, InputEvent theEvent, int shape_idx, PlayerShip theClickedPlayer)
+  {
+    if (theEvent.IsActionPressed("left_click"))
+    {
+      _serilogger.Debug($"Server.cs: player {theClickedPlayer.uuid} clicked - making current");
+      Camera2D playerCamera = theClickedPlayer.GetNode<Camera2D>("Camera2D");
+      if (playerCamera.Current)
+      {
+        _serilogger.Debug($"Server.cs: player {theClickedPlayer.uuid} camera already current, skipping");
+        return;
+      }
+      else
+      {
+        // remove the current rts camera
+        rtsCamera.ClearCurrent();
+
+        // make the player's camera current
+        playerCamera.MakeCurrent();
+
+        // store which the current camera is
+        currentCamera = playerCamera;
+
+        // set the text field to the player's ID so that we can use the unfocus button later
+        playerID.Text = theClickedPlayer.uuid;
+
+        // set the player as focused
+        playerCamera.GetParent<PlayerShip>().isFocused = true;
+      }
     }
   }
 
   public override void _UnhandledInput(InputEvent @event)
   {
 
-    // hop out if we don't have a player to zoom in on
-    CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
-    LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
-    if (!playerObjects.ContainsKey(textField.Text)) { return; }
+    //// hop out if we don't have a player to zoom in on
+    //CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
+    //LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
+    //if (!playerObjects.ContainsKey(textField.Text)) { return; }
 
-    // grab the camera and zoom it by zoom factor
-    Node2D playerForCamera = playerObjects[textField.Text];
-    Camera2D playerCamera = playerForCamera.GetNode<Camera2D>("PlayerShip/Camera2D");
+    //// grab the camera and zoom it by zoom factor
+    //Node2D playerForCamera = playerObjects[textField.Text];
+    //Camera2D playerCamera = playerForCamera.GetNode<Camera2D>("PlayerShip/Camera2D");
 
-    if (@event.IsActionPressed("zoom_in"))
-    {
-      _serilogger.Verbose("Server.cs: zoom viewport in!");
-      float zoomN = CameraCurrentZoom.x - CameraZoomStepSize;
-      zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
-      CameraCurrentZoom.x = zoomN;
-      CameraCurrentZoom.y = zoomN;
-      playerCamera.Zoom = CameraCurrentZoom;
-      _serilogger.Verbose($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
-    }
+    //if (@event.IsActionPressed("zoom_in"))
+    //{
+    //  _serilogger.Verbose("Server.cs: zoom viewport in!");
+    //  float zoomN = CameraCurrentZoom.x - CameraZoomStepSize;
+    //  zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
+    //  CameraCurrentZoom.x = zoomN;
+    //  CameraCurrentZoom.y = zoomN;
+    //  playerCamera.Zoom = CameraCurrentZoom;
+    //  _serilogger.Verbose($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
+    //}
 
-    if (@event.IsActionPressed("zoom_out"))
-    {
-      _serilogger.Verbose("Server.cs zoom viewport out!");
-      float zoomN = CameraCurrentZoom.x + CameraZoomStepSize;
-      zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
-      CameraCurrentZoom.x = zoomN;
-      CameraCurrentZoom.y = zoomN;
-      playerCamera.Zoom = CameraCurrentZoom;
-      _serilogger.Verbose($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
-    }
+    //if (@event.IsActionPressed("zoom_out"))
+    //{
+    //  _serilogger.Verbose("Server.cs zoom viewport out!");
+    //  float zoomN = CameraCurrentZoom.x + CameraZoomStepSize;
+    //  zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
+    //  CameraCurrentZoom.x = zoomN;
+    //  CameraCurrentZoom.y = zoomN;
+    //  playerCamera.Zoom = CameraCurrentZoom;
+    //  _serilogger.Verbose($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
+    //}
   }
 
   // helper functions
@@ -957,7 +1010,7 @@ public class Server : Node
     int offsetPixels = RingRadius % 2;
     if (RingRadius == 0)
     {
-      StarFieldRadiusPixels = SectorSize * 2;
+      StarFieldRadiusPixels = SectorSize;
     }
     else
     {
