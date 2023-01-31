@@ -89,6 +89,7 @@ public class Server : Node
   Label RingSize;
   Node SectorMap;
   Node Players;
+  StarFieldRadius StarFieldRing;
 
   void SendGameUpdates()
   {
@@ -274,6 +275,12 @@ public class Server : Node
 
   }
 
+  void DrawStarFieldRing()
+  {
+    StarFieldRing.radius = StarFieldRadiusPixels;
+    StarFieldRing.Update();
+  }
+
   public void InstantiateMissile(SpaceMissile missile)
   {
     // this only sends the missile creation event buffer
@@ -366,8 +373,8 @@ public class Server : Node
     _serilogger.Debug($"Server.cs: Sector {theSector.q},{theSector.r} now has {sectorMap[sector_key]}");
 
     // reset the starfield radius - should also move the center
-    StarFieldRadiusPixels = (RingRadius + 1) * SectorSize * 2;
-    _serilogger.Debug($"Server.cs: New starfield radius is: {StarFieldRadiusPixels}");
+    _CalcStarFieldRadius();
+    DrawStarFieldRing();
 
     // now that the sector to insert the player has been selected, find its
     // pixel center
@@ -742,6 +749,8 @@ public class Server : Node
     RingSize = GetNode<Label>("DebugUI/RingSizeContainer/RingSize");
     SectorMap = GetNode("SectorMap");
     Players = GetNode("Players");
+    StarFieldRing = GetNode<StarFieldRadius>("StarFieldRadius");
+    DrawStarFieldRing();
   }
 
   // Called every frame. 'delta' is the elapsed time since the previous frame.
@@ -939,6 +948,22 @@ public class Server : Node
     newSector.Position = new Vector2((float)sector_center.x, (float)sector_center.y);
     newSector.AddToGroup("sectors");
     SectorMap.AddChild(newSector);
+  }
+
+  void _CalcStarFieldRadius()
+  {
+    // if the ring radius is odd, we need to multiply by 3 instead of 2
+    // because of the size of hexes
+    int offsetPixels = RingRadius % 2;
+    if (RingRadius == 0)
+    {
+      StarFieldRadiusPixels = SectorSize * 2;
+    }
+    else
+    {
+      StarFieldRadiusPixels = (Int32) ((SectorSize / 2) * Mathf.Sqrt(3) * (RingRadius * 2 + 1));
+    }
+    _serilogger.Debug($"Server.cs: New starfield radius is: {StarFieldRadiusPixels}");
   }
 
 }
