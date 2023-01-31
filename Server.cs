@@ -168,15 +168,17 @@ public class Server : Node
     // https://www.redblobgames.com/grids/hexagons/#rings
 
     // need to iterate over all the rings
-    for (int x = 1; x <= RingRadius; x++)
+    for (int currentRing = 1; currentRing <= RingRadius; currentRing++)
     {
+      _serilogger.Debug($"Server.cs: Traversing ring {currentRing}");
       // pick the 0th sector in a ring
-      Hex theSector = theCenter.Add(Hex.directions[4].Scale(x));
+      Hex theSector = theCenter.Add(Hex.directions[4].Scale(currentRing));
+      _serilogger.Debug($"Server.cs: starting with sector {theSector.q},{theSector.r}");
 
       // traverse the ring
       for (int i = 0; i < 6; i++)
       {
-        for (int j = 0; j < RingRadius; j++)
+        for (int j = 0; j < currentRing; j++)
         {
           string theKey = $"{theSector.q},{theSector.r}";
           _serilogger.Debug($"Server.cs: Checking sector {theKey}");
@@ -211,7 +213,10 @@ public class Server : Node
 
     _serilogger.Debug($"Server.cs: Completed traversing ring {RingRadius}, incrementing and returning 0th sector of new ring");
     RingRadius++;
-    return theCenter.Add(Hex.directions[4].Scale(RingRadius));
+    _serilogger.Debug($"Server.cs: New ringradius is {RingRadius}");
+    Hex hexToReturn = theCenter.Add(Hex.directions[4].Scale(RingRadius));
+    _serilogger.Debug($"Server.cs: 0th sector of new ring is {hexToReturn.q},{hexToReturn.r}");
+    return hexToReturn;
   }
 
   void UpdateSectorMap()
@@ -235,7 +240,7 @@ public class Server : Node
     _serilogger.Debug($"Server.cs: Currently {players.Count} players in 'player_ships' group");
     foreach (PlayerShip player in players)
     {
-      _serilogger.Debug($"Server.cs: Updating sector map for {player.uuid}");
+      _serilogger.Debug($"Server.cs: Checking where {player.uuid} is in sector map");
       FractionalHex theHex = HexLayout.PixelToHex(new Point(player.GlobalPosition.x, player.GlobalPosition.y));
       Hex theRoundedHex = theHex.HexRound();
 
@@ -269,13 +274,11 @@ public class Server : Node
     {
       _serilogger.Debug($"Server.cs: Current sector is {sector}");
       String[] sector_parts = sector.Split(',');
-      _serilogger.Debug($"Server.cs: Sector part 0: {sector_parts[0]} 1: {sector_parts[1]}");
 
       // q + r + s must equal zero
       int q = sector_parts[0].ToInt();
       int r = sector_parts[1].ToInt();
       int s = 0 - q - r;
-      _serilogger.Debug($"Server.cs: calculated s is {s}");
       _CreateSector(new Hex(q,r,s));
     }
 
