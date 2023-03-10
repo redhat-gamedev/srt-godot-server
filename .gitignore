@@ -14,3 +14,6 @@ data_*/
 
 # our ignores
 server.cfg
+
+# ignore specific user instances of config but not the template files
+.vscode/*.json
