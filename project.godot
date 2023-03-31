@@ -24,22 +24,6 @@ window/size/viewport_height=1080
 
 project/assembly_name="srt-godot-test"
 
-[mono]
-
-project/assembly_name="srt-godot-test"
-export/export_assemblies_inside_pck=false
-
-[physics]
-
-2d/default_gravity=0
-2d/default_gravity_vector=Vector2(0, 0)
-common/enable_pause_aware_picking=true
-
-[rendering]
-
-renderer/rendering_method="gl_compatibility"
-environment/defaults/default_environment="res://default_env.tres"
-
 [input]
 
 ui_select={
@@ -108,3 +92,18 @@ right_click={
 ]
 }
 
+[mono]
+
+project/assembly_name="srt-godot-test"
+export/export_assemblies_inside_pck=false
+
+[physics]
+
+2d/default_gravity=0
+2d/default_gravity_vector=Vector2(0, 0)
+common/enable_pause_aware_picking=true
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+environment/defaults/default_environment="res://default_env.tres"

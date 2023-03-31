@@ -84,8 +84,8 @@ public partial class Server : Node
   /* END PLAYER DEFAULTS AND CONFIG */
 
   // SCENE PRELOADS
-  PackedScene PlayerShipThing = (PackedScene)ResourceLoader.Load("res://Player.tscn");
-  PackedScene aSector = (PackedScene)ResourceLoader.Load("res://Sector.tscn");
+  PackedScene PlayerPackedScene = (PackedScene)ResourceLoader.Load("res://Player.tscn");
+  PackedScene SectorPackedScene = (PackedScene)ResourceLoader.Load("res://Sector.tscn");
 
   // END SCENE PRELOADS
 
@@ -322,13 +322,14 @@ public partial class Server : Node
 
 	  //Area2D playerShipThingInstance = (Area2D)PlayerShipThing.Instance();
 	  //3to4
-	  ulong iid = PlayerShipThing.GetInstanceId();
-	  GodotObject go = PackedScene.InstanceFromId(iid);
-	  Area2D playerShipThingInstance = (Area2D)go;
-	  PlayerShip newPlayer = playerShipThingInstance.GetNode<PlayerShip>("PlayerShip");
+	  // C# has no preload, so you have to always use ResourceLoader.Load<PackedScene>().
+	  // var player = ResourceLoader.Load<PackedScene>("res://Player.tscn").Instantiate();
+	  Node shipThingsNode = PlayerPackedScene.Instantiate();
+	  PlayerShip newPlayer = shipThingsNode.GetNode<PlayerShip>("PlayerShip");
+
 	  newPlayer.uuid = UUID;
 
-	  // assign the configured values
+  	  // assign the configured values
 	  newPlayer.Thrust = PlayerDefaultThrust;
 	  newPlayer.MaxSpeed = PlayerDefaultMaxSpeed;
 	  newPlayer.RotationThrust = PlayerDefaultRotationThrust;
@@ -338,16 +339,18 @@ public partial class Server : Node
 	  newPlayer.MissileDamage = PlayerDefaultMissileDamage;
 
 	  _serilogger.Debug($"Server.cs: Adding {UUID} to playerObjects");
-	  playerObjects.Add(UUID, playerShipThingInstance);
+	  // playerObjects.Add(UUID, playerShipThingInstance);
+	  //3to4
+	  playerObjects.Add(UUID, newPlayer);
 	  newPlayer.AddToGroup("player_ships");
-
+	
 	  _serilogger.Debug($"Server.cs: Current count of playerObjects: {playerObjects.Count}");
-
+	
 	  // if there are more than two players, it means we are now at the point
 	  // where we have to start calculating ring things
 	  if (playerObjects.Count > 2)
 	  {
-
+	
 		  // if the ring radius is zero, and we have more than two players, we need
 		  // to increase it, otherwise things will already blow up
 		  if (RingRadius == 0)
@@ -355,10 +358,10 @@ public partial class Server : Node
 			  _serilogger.Debug($"Server.cs: playerObjects count > 2 and ringradius == 0 so incrementing");
 			  RingRadius++;
 		  }
-
+	
 		  // it's possible that we have insufficient players in sector 0,0,0, so
 		  // check that first for funzos
-
+	
 		  int qty;
 		  if (sectorMap.TryGetValue("0,0", out qty))
 		  {
@@ -373,12 +376,12 @@ public partial class Server : Node
 			  }
 		  }
 	  }
-
-	  _serilogger.Debug($"Server.cs: Selected sector for player {UUID} is {theSector.q},{theSector.r}");
-
-	  // increment whatever sector this new player is going into
-	  string sector_key = theSector.q + "," + theSector.r;
-
+	
+	_serilogger.Debug($"Server.cs: Selected sector for player {UUID} is {theSector.q},{theSector.r}");
+	
+	// increment whatever sector this new player is going into
+	string sector_key = theSector.q + "," + theSector.r;
+	
 	  if (sectorMap.ContainsKey(sector_key))
 	  {
 		  sectorMap[sector_key] += 1;
@@ -387,48 +390,47 @@ public partial class Server : Node
 	  {
 		  sectorMap[sector_key] = 1;
 	  }
-
+	
 	  _serilogger.Debug($"Server.cs: Sector {theSector.q},{theSector.r} now has {sectorMap[sector_key]}");
-
+	
 	  // reset the starfield radius - should also move the center
 	  _CalcStarFieldRadius();
 	  DrawStarFieldRing();
-
+	
 	  // now that the sector to insert the player has been selected, find its
 	  // pixel center
 	  Point theSectorCenter = HexLayout.HexToPixel(theSector);
 	  _serilogger.Debug($"Server.cs: Center of selected sector: {theSectorCenter.x},{theSectorCenter.y}");
-
-	  // TODO: need to ensure players are not on top of one another for real.  we
-	  // will spawn two players into a sector to start, so we should check if
-	  // there's already a player in the sector first. if there is, we should
-	  // place the new player equidistant from the already present player
-
-	  // badly randomize start position
-	  int theMin = (int)(SectorSize * 0.3);
-	  int xOffset = rnd.Next(-1 * theMin, theMin);
-	  int yOffset = rnd.Next(-1 * theMin, theMin);
-	  int finalX = (Int32)theSectorCenter.x + xOffset;
-	  int finalY = (Int32)theSectorCenter.y + yOffset;
-	  _serilogger.Debug($"Server.cs: Placing player at {finalX},{finalY}");
-
-	  playerShipThingInstance.GlobalPosition = new Vector2(x: (Int32)theSectorCenter.x + xOffset,
-		  y: (Int32)theSectorCenter.y + yOffset);
-
-	  // connect the ship thing input signal so that we can catch when a ship was clicked in the debug UI
-	  //3to4
-	  //playerShipThingInstance.Connect("input_event", new Callable(this, "_on_ShipThings_input_event"), new Godot.Collections.Array {newPlayer});
-	  //Godot.Collections.Array<PlayerShip> gca = new Godot.Collections.Array<PlayerShip>{ newPlayer };
-	  playerShipThingInstance.Connect("input_event",
-		  new Callable(this, "_on_ShipThings_input_event"),
-		  0); // no GodotObject.ConnectFlags?
-
-	Players.AddChild(playerShipThingInstance);
+	
+	// TODO: need to ensure players are not on top of one another for real.  we
+	// will spawn two players into a sector to start, so we should check if
+	// there's already a player in the sector first. if there is, we should
+	// place the new player equidistant from the already present player
+	
+	// badly randomize start position
+	int theMin = (int)(SectorSize * 0.3);
+	int xOffset = rnd.Next(-1 * theMin, theMin);
+	int yOffset = rnd.Next(-1 * theMin, theMin);
+	int finalX = (Int32)theSectorCenter.x + xOffset;
+	int finalY = (Int32)theSectorCenter.y + yOffset;
+	_serilogger.Debug($"Server.cs: Placing player at {finalX},{finalY}");
+	
+	//   // playerShipThingInstance.GlobalPosition =
+	//   //3to4
+	newPlayer.GlobalPosition = new Vector2(x: (Int32)theSectorCenter.x + xOffset, y: (Int32)theSectorCenter.y + yOffset);
+	
+	// connect the ship thing input signal so that we can catch when a ship was clicked in the debug UI
+	//3to4
+	newPlayer.Connect("input_event", new Callable(this, "_on_ShipThings_input_event"), 0); // no GodotObject.ConnectFlags?
+	
+	// Players.AddChild(playerShipThingInstance);
+	//3to4
+	Players.AddChild(shipThingsNode);
 	_serilogger.Information($"Server.cs: Added player {UUID} instance!");
-
+	
 	// create the protobuf for the player joining
 	GameEvent egeb = newPlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeCreate);
-
+	
 	// send the player create event message
 	MessageInterface.SendGameEvent(egeb);
 	DrawSectorMap();
@@ -1016,18 +1018,32 @@ public partial class Server : Node
 
 	// Sector newSector = aSector.Instance<Sector>();
 	//3to4
-	ulong iid = aSector.GetInstanceId();
-	GodotObject go = Sector.InstanceFromId(iid);
-	Sector newSector = (Sector)go;
+	Node sectorNode = SectorPackedScene.Instantiate();
+	Polygon2D newSector = sectorNode.GetNode<Polygon2D>("SectorPolygon");
 
 	// scale by the sector size given the width of the hex polygon is 50px
+	// HexRatio = (SectorSize / 50) * 2;
+	// newSector.ApplyScale(new Vector2(HexRatio, HexRatio));
+	// newSector.SectorLabel = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
+	// Point sector_center = HexLayout.HexToPixel(theSectorHex);
+	// newSector.Position = new Vector2((float)sector_center.x, (float)sector_center.y);
+	// newSector.AddToGroup("sectors");
+	// SectorMap.AddChild(newSector);
+	
 	HexRatio = (SectorSize / 50) * 2;
 	newSector.ApplyScale(new Vector2(HexRatio, HexRatio));
-	newSector.SectorLabel = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
+	//3to4
+	// newSector.SectorLabel = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
+	Label sectorLabel = sectorNode.GetNode<Label>("SectorLabel");
+	var sectorLabelText = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
+	// GD.Print("sectorLabelText is ", sectorLabelText);
+	sectorLabel.Text = sectorLabelText;//theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
 	Point sector_center = HexLayout.HexToPixel(theSectorHex);
 	newSector.Position = new Vector2((float)sector_center.x, (float)sector_center.y);
 	newSector.AddToGroup("sectors");
-	SectorMap.AddChild(newSector);
+	//3to4
+	// SectorMap.AddChild(newSector);
+	SectorMap.AddChild(sectorNode);
   }
 
   void _CalcStarFieldRadius()
