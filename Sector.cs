@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-public class Sector : Node2D
+public partial class Sector : Node2D
 {
   public string SectorLabel = "x,x";
 

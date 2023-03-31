@@ -1,3 +1,4 @@
+@tool
 # Copyright 2017 Kamil Lewan <carmel4a97@gmail.com>
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,7 +19,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-tool
 
 extends EditorPlugin
 

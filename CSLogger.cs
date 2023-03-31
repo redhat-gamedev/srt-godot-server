@@ -2,7 +2,7 @@
 using Godot;
 using System;
 
-public class CSLogger : Node
+public partial class CSLogger : Node
 {
   Node gdlogger;
   
