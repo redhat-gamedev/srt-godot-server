@@ -52,7 +52,7 @@ public partial class PlayerShip : CharacterBody2D
 
   Layout theLayout;
 
-  PackedScene MissileScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
+  PackedScene MissilePackedScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
 
   bool QueuedForRemoval = false; // used when this player is about to be removed from play
 
@@ -132,9 +132,14 @@ public partial class PlayerShip : CharacterBody2D
 
 	//MyMissile = (SpaceMissile)MissileScene.Instance();
 	//3to4
-	ulong iid = MissileScene.GetInstanceId();
-	GodotObject go = PackedScene.InstanceFromId(iid);
-	MyMissile = (SpaceMissile)go;
+	// ulong iid = MissilePackedScene.GetInstanceId();
+	// GodotObject go = PackedScene.InstanceFromId(iid);
+	// MyMissile = (SpaceMissile)go;
+	Node missileNode = MissilePackedScene.Instantiate();
+	// GD.Print("PlayerShip::FireMissile missleNode is " + missileNode);
+	// MyMissile = missileNode.GetNode<SpaceMissile>("root");
+	MyMissile = (SpaceMissile)missileNode;
+	// GD.Print("PlayerShip::FireMissile MyMissile is " + MyMissile);
 
 	// TODO: need to check for UUID collision
 	_serilogger.Debug($"PlayerShip.cs: Supplied UUID is {missileUUID}");

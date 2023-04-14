@@ -66,7 +66,9 @@ public partial class SpaceMissile : Area2D
 	_serilogger = MyServer._serilogger;
 
 	// connect the hit signal to handling the hit
-	Connect(nameof(HitEventHandler), new Callable(this, "_HandleHit"));
+	//3to4
+	//Connect(nameof(HitEventHandler), new Callable(this, "_HandleHit"));
+	//this.Connect(nameof(HitEventHandler), new Callable(this, "_HandleHit"));
 
 	// add the missile to the missiles group so that we can iterate over
 	// the entire group and send updates later
@@ -109,7 +111,8 @@ public partial class SpaceMissile : Area2D
 	}
 
 	// We hit another Player, so proceed
-	EmitSignal("Hit", (PlayerShip)body);
+	// EmitSignal("Hit", (PlayerShip)body);
+	_HandleHit((PlayerShip)body);
 
 	// Must be deferred as we can't change physics properties on a physics callback.
 	GetNode<CollisionShape2D>("CollisionShape2D").SetDeferred("disabled", true);

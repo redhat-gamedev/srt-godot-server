@@ -135,14 +135,18 @@ public partial class Server : Node
   {
 	_serilogger.Debug($"Server.cs: Removing player: {UUID}");
 	Node2D thePlayerToRemove = playerObjects[UUID];
-	PlayerShip thePlayer = thePlayerToRemove.GetNode<PlayerShip>("PlayerShip");
+	//3to4
+	//PlayerShip thePlayer = thePlayerToRemove.GetNode<PlayerShip>("PlayerShip");
+	PlayerShip thePlayer = (PlayerShip)thePlayerToRemove;//.GetNode<PlayerShip>("PlayerShip");
+	Node thePlayerParent = thePlayer.GetParent();
 
 	// create the buffer for the specific player and send it
 	GameEvent gameEvent = thePlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeDestroy);
 
 	// TODO: should this get wrapped with a try or something?
 	playerObjects.Remove(UUID);
-	thePlayerToRemove.QueueFree();
+	// thePlayerToRemove.QueueFree();
+	thePlayerParent.QueueFree();
 
 	// send the player create event message
 	MessageInterface.SendGameEvent(gameEvent);
@@ -465,7 +469,9 @@ public partial class Server : Node
 	// find the PlayerShip
 	String playerUUID = cb.Uuid;
 	Node2D playerRoot = playerObjects[playerUUID];
-	PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
+	//3to4
+	//PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
+	PlayerShip movePlayer = (PlayerShip)playerRoot;
 	// TODO: should we perform a check here to see if we should bother firing
 	// the missile, or leave that to the playership.firemissile method alone?
 
