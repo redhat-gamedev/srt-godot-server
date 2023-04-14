@@ -39,6 +39,7 @@ public partial class AMQPserver : Node
 
   void CommandReceived(IReceiverLink receiver, Message message)
   {
+	  //GD.Print("AMQPserver::CommandReceived");
 	_serilogger.Verbose("AMQPserver.cs: Client game event received!");
 	// accept the message so that it gets removed from the queue
 	receiver.Accept(message);
@@ -100,6 +101,7 @@ public partial class AMQPserver : Node
   // only used for debug
   public void SendCommand(Command CommandBuffer)
   {
+	  //GD.Print("AMQPserver::SendCommand");
 	_serilogger.Verbose("AMQPServer.cs: Sending command");
 
 	// serialize it into a byte stream

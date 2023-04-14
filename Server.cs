@@ -438,21 +438,24 @@ public partial class Server : Node
 
   void ProcessMoveCommand(Command cb)
   {
+	//GD.Print("Server::ProcessMoveCommand for cb.Uuid " + cb.Uuid);
 	_serilogger.Verbose("Server.cs: Processing move command!");
 
 	String uuid = cb.Uuid;
 	Node2D playerRoot;
-	if (playerObjects.TryGetValue(uuid, out playerRoot))
+	if (false == playerObjects.TryGetValue(uuid, out playerRoot))
 	{
-	  // find the PlayerShip
-	  PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
-
-	  // process thrust and rotation
-	  Vector2 thrust = new Vector2(cb.InputX, cb.InputY);
-
-	  // push the thrust input onto the player's array
-	  movePlayer.MovementQueue.Enqueue(thrust);
+		//GD.Print("Server::ProcessMoveCommand failed to get playerRoot from playerObjects!");
+		return;
 	}
+	//3to4
+	// PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
+	PlayerShip movePlayer = (PlayerShip)playerRoot;
+	// process thrust and rotation
+	Vector2 thrust = new Vector2(cb.InputX, cb.InputY);
+	// push the thrust input onto the player's array
+	movePlayer.MovementQueue.Enqueue(thrust);
+	//GD.Print("Server::ProcessMoveCommand movePlayer.MovementQueue.Count is " + movePlayer.MovementQueue.Count);
   }
 
   void ProcessShootCommand(Command cb)
@@ -518,18 +521,22 @@ public partial class Server : Node
   {
 	while (GameEventQueue.Count > 0)
 	{
+		//GD.Print("Server::ProcessGameEvents::GameEventQueue.Count > 0");
 	  Command commandBuffer = GameEventQueue.Dequeue();
 	  switch (commandBuffer.command_type)
 	  {
 		case Command.CommandType.CommandTypeMove:
+			//GD.Print("Server::ProcessGameEvents::CommandTypeMove");
 		  _serilogger.Verbose("Server.cs: Move command received");
 		  ProcessMoveCommand(commandBuffer);
 		  break;
 		case Command.CommandType.CommandTypeShoot:
+			//GD.Print("Server::ProcessGameEvents::CommandTypeShoot");
 		  _serilogger.Verbose("Server.cs: Shoot command received");
 		  ProcessShootCommand(commandBuffer);
 		  break;
 		case Command.CommandType.CommandTypeUnspecified:
+			//GD.Print("Server::ProcessGameEvents::CommandTypeUnspecified");
 		  _serilogger.Error("Server.cs: Unspecified command received");
 		  break;
 	  }
@@ -567,6 +574,7 @@ public partial class Server : Node
 
   void ProcessInputEvent(Vector2 velocity, Vector2 shoot)
   {
+	  //GD.Print("Server::ProcessInputEvent");
 	// if there is no player in the dictionary, do nothing
 	// this catches accidental keyboard hits
 	if (!playerObjects.ContainsKey(playerID.Text)) { return; }
@@ -584,6 +592,7 @@ public partial class Server : Node
 
 	if (velocity.Length() > 0)
 	{
+		//GD.Print("Server::ProcessInputEvent velocity.Length() > 0");
 	  _serilogger.Verbose("Server.cs: velocity length is greater than zero - move");
 	  Command cb = new Command();
 	  cb.command_type = Command.CommandType.CommandTypeMove;
@@ -596,6 +605,7 @@ public partial class Server : Node
 
 	if (shoot.Length() > 0)
 	{
+		//GD.Print("Server::ProcessInputEvent shoot.Length() > 0");
 	  _serilogger.Verbose("Server.cs: shoot length is greater than zero - shoot");
 	  Command cb = new Command();
 	  cb.command_type = Command.CommandType.CommandTypeShoot;
@@ -782,7 +792,7 @@ public partial class Server : Node
   // Called every frame. 'delta' is the elapsed time since the previous frame.
   public override void _Process(double delta)
   {
-
+	// //GD.Print("Server_Process()");
 	ProcessSecurityEvents();
 	ProcessGameEvents();
 	ProcessPlayerRemoval();
@@ -793,32 +803,38 @@ public partial class Server : Node
 
 	if (Input.IsActionPressed("rotate_right"))
 	{
+		//GD.Print("rotate_right");
 	  velocity.X += 1;
 	}
 
 	if (Input.IsActionPressed("rotate_left"))
 	{
+		//GD.Print("rotate_left");
 	  velocity.X -= 1;
 	}
 
 	if (Input.IsActionPressed("thrust_forward"))
 	{
+		//GD.Print("thrust_forward");
 	  velocity.Y += 1;
 	}
 
 	if (Input.IsActionPressed("thrust_reverse"))
 	{
+		//GD.Print("thrust_reverse");
 	  velocity.Y -= 1;
 	}
 
 	if (Input.IsActionPressed("fire"))
 	{
+		//GD.Print("fire");
 	  shoot.Y = 1;
 	}
 
 	if ((velocity.Length() > 0) || (shoot.Length() > 0))
 	{
 	  // TODO: this should probably be putting things on the queue instead
+	  //GD.Print("Server::_Process velocity.Length() > 0 || shoot.Length() > 0");
 	  ProcessInputEvent(velocity, shoot);
 	}
 
@@ -1036,7 +1052,7 @@ public partial class Server : Node
 	// newSector.SectorLabel = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
 	Label sectorLabel = sectorNode.GetNode<Label>("SectorLabel");
 	var sectorLabelText = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
-	// GD.Print("sectorLabelText is ", sectorLabelText);
+	// //GD.Print("sectorLabelText is ", sectorLabelText);
 	sectorLabel.Text = sectorLabelText;//theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
 	Point sector_center = HexLayout.HexToPixel(theSectorHex);
 	newSector.Position = new Vector2((float)sector_center.x, (float)sector_center.y);

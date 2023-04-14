@@ -1,6 +1,8 @@
 using Godot;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using redhatgamedev.srt.v1;
 
 public partial class PlayerShip : CharacterBody2D
@@ -23,7 +25,7 @@ public partial class PlayerShip : CharacterBody2D
 
   public int HitPoints = 100;
 
-  public Queue MovementQueue = new Queue();
+  public ConcurrentQueue<Vector2> MovementQueue = new ConcurrentQueue<Vector2>();
 
   public String uuid;
 
@@ -263,6 +265,7 @@ public partial class PlayerShip : CharacterBody2D
   }
   public override void _PhysicsProcess(double delta)
   {
+	  // //GD.Print("PlayerShip::_PhysicsProcess");
 	if (shipThing == null) shipThing = (Node2D)GetParent();
 
 	// somewhat based on: https://kidscancode.org/godot_recipes/2d/topdown_movement/
@@ -271,13 +274,18 @@ public partial class PlayerShip : CharacterBody2D
 	double rotation_dir = 0; // in case we need it
 
 	_serilogger.Verbose($"{uuid}: handling physics");
-	if (MovementQueue.Count > 0)
+	//3to4
+	// Vector2 thisMovement = (Vector2)MovementQueue.Dequeue();
+	// if (MovementQueue.Count > 0)
+	Vector2 thisMovement = Vector2.Zero;
+	if (MovementQueue.TryDequeue(out thisMovement))
 	{
-	  Vector2 thisMovement = (Vector2)MovementQueue.Dequeue();
+	  //GD.Print("PlayerShip::_PhysicsProcess dequeued from MovementQueue, thisMovement is " + thisMovement);
 	  _serilogger.Verbose($"UUID: {uuid} X: {thisMovement.X} Y: {thisMovement.Y}");
 
 	  if (thisMovement.Y > 0)
 	  {
+		//GD.Print("thisMovement.Y > 0");
 		CurrentVelocity = Mathf.Lerp(CurrentVelocity, MaxSpeed, Thrust * delta);
 
 		// max out speed when velocity gets above threshold for same reason
@@ -286,6 +294,7 @@ public partial class PlayerShip : CharacterBody2D
 
 	  if (thisMovement.Y < 0)
 	  {
+		//GD.Print("thisMovement.Y < 0");
 		CurrentVelocity = Mathf.Lerp(CurrentVelocity, 0, Thrust * delta);
 
 		// cut speed when velocity gets below threshold, otherwise LERPing
@@ -293,16 +302,18 @@ public partial class PlayerShip : CharacterBody2D
 		if (CurrentVelocity < MaxSpeed * (StopThreshold/100)) { CurrentVelocity = 0; }
 	  }
 
-	  if (thisMovement.Y != 0)
+	  if (thisMovement.X != 0)
 	  {
-		rotation_dir = thisMovement.Y;
+		rotation_dir = thisMovement.X;
 	  }
 
 	  _serilogger.Verbose($"UUID: {uuid} Velocity: {CurrentVelocity}");
-
 	}
 	
-	Vector2 velocity =  -(Transform2D.Identity.Y * (float)CurrentVelocity);
+	//3to4
+	//Vector2 velocity =  -(Transform.y * CurrentVelocity);
+	//Vector2 velocity =  -(Transform2D.Identity.Y * (float)CurrentVelocity);
+	Vector2 velocity =  -(Transform.Y * (float)CurrentVelocity);
 	_serilogger.Verbose($"UUID: {uuid} Vector X: {velocity.X} Y: {velocity.Y} ");
 	Rotation += (float)(rotation_dir * RotationThrust * delta);
 
