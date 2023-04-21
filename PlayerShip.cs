@@ -130,16 +130,8 @@ public partial class PlayerShip : CharacterBody2D
 	  return;
 	}
 
-	//MyMissile = (SpaceMissile)MissileScene.Instance();
-	//3to4
-	// ulong iid = MissilePackedScene.GetInstanceId();
-	// GodotObject go = PackedScene.InstanceFromId(iid);
-	// MyMissile = (SpaceMissile)go;
 	Node missileNode = MissilePackedScene.Instantiate();
-	// GD.Print("PlayerShip::FireMissile missleNode is " + missileNode);
-	// MyMissile = missileNode.GetNode<SpaceMissile>("root");
 	MyMissile = (SpaceMissile)missileNode;
-	// GD.Print("PlayerShip::FireMissile MyMissile is " + MyMissile);
 
 	// TODO: need to check for UUID collision
 	_serilogger.Debug($"PlayerShip.cs: Supplied UUID is {missileUUID}");
@@ -279,18 +271,13 @@ public partial class PlayerShip : CharacterBody2D
 	double rotation_dir = 0; // in case we need it
 
 	_serilogger.Verbose($"{uuid}: handling physics");
-	//3to4
-	// Vector2 thisMovement = (Vector2)MovementQueue.Dequeue();
-	// if (MovementQueue.Count > 0)
 	Vector2 thisMovement = Vector2.Zero;
 	if (MovementQueue.TryDequeue(out thisMovement))
 	{
-	  //GD.Print("PlayerShip::_PhysicsProcess dequeued from MovementQueue, thisMovement is " + thisMovement);
 	  _serilogger.Verbose($"UUID: {uuid} X: {thisMovement.X} Y: {thisMovement.Y}");
 
 	  if (thisMovement.Y > 0)
 	  {
-		//GD.Print("thisMovement.Y > 0");
 		CurrentVelocity = Mathf.Lerp(CurrentVelocity, MaxSpeed, Thrust * delta);
 
 		// max out speed when velocity gets above threshold for same reason
@@ -299,7 +286,6 @@ public partial class PlayerShip : CharacterBody2D
 
 	  if (thisMovement.Y < 0)
 	  {
-		//GD.Print("thisMovement.Y < 0");
 		CurrentVelocity = Mathf.Lerp(CurrentVelocity, 0, Thrust * delta);
 
 		// cut speed when velocity gets below threshold, otherwise LERPing
@@ -315,9 +301,6 @@ public partial class PlayerShip : CharacterBody2D
 	  _serilogger.Verbose($"UUID: {uuid} Velocity: {CurrentVelocity}");
 	}
 	
-	//3to4
-	//Vector2 velocity =  -(Transform.y * CurrentVelocity);
-	//Vector2 velocity =  -(Transform2D.Identity.Y * (float)CurrentVelocity);
 	Vector2 velocity =  -(Transform.Y * (float)CurrentVelocity);
 	_serilogger.Verbose($"UUID: {uuid} Vector X: {velocity.X} Y: {velocity.Y} ");
 	Rotation += (float)(rotation_dir * RotationThrust * delta);
@@ -337,5 +320,4 @@ public partial class PlayerShip : CharacterBody2D
 	  GlobalPosition = newPosition;
 	}
   }
-
 }

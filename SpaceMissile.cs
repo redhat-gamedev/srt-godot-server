@@ -65,11 +65,6 @@ public partial class SpaceMissile : Area2D
 	MyServer = GetNode<Server>("/root/Server");
 	_serilogger = MyServer._serilogger;
 
-	// connect the hit signal to handling the hit
-	//3to4
-	//Connect(nameof(HitEventHandler), new Callable(this, "_HandleHit"));
-	//this.Connect(nameof(HitEventHandler), new Callable(this, "_HandleHit"));
-
 	// add the missile to the missiles group so that we can iterate over
 	// the entire group and send updates later
 	AddToGroup("missiles");

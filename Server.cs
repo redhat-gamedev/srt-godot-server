@@ -18,7 +18,6 @@ public partial class Server : Node
   AMQPserver MessageInterface;
 
   //[Export]
-  //3to4
   Dictionary<String, Node2D> playerObjects = new Dictionary<string, Node2D>();
 
   // the "width" of a hex is 2 * size
@@ -36,11 +35,9 @@ public partial class Server : Node
   // the sector map will only store the number of players in each sector
   // it only gets updated when a new player joins
   //[Export]
-  //3to4
   Dictionary<String, int> sectorMap = new Dictionary<string, int>();
 
   //[Export]
-  //3to4
   Dictionary<String, Node2D> sectorNodes = new Dictionary<String, Node2D>();
 
   [Export]
@@ -135,9 +132,7 @@ public partial class Server : Node
   {
 	_serilogger.Debug($"Server.cs: Removing player: {UUID}");
 	Node2D thePlayerToRemove = playerObjects[UUID];
-	//3to4
-	//PlayerShip thePlayer = thePlayerToRemove.GetNode<PlayerShip>("PlayerShip");
-	PlayerShip thePlayer = (PlayerShip)thePlayerToRemove;//.GetNode<PlayerShip>("PlayerShip");
+	PlayerShip thePlayer = (PlayerShip)thePlayerToRemove;
 	Node thePlayerParent = thePlayer.GetParent();
 
 	// create the buffer for the specific player and send it
@@ -145,7 +140,6 @@ public partial class Server : Node
 
 	// TODO: should this get wrapped with a try or something?
 	playerObjects.Remove(UUID);
-	// thePlayerToRemove.QueueFree();
 	thePlayerParent.QueueFree();
 
 	// send the player create event message
@@ -270,7 +264,6 @@ public partial class Server : Node
 		_serilogger.Debug($"Server.cs: {theSectorKey}: {sectorMap[theSectorKey]}");
 	  }
 	}
-
   }
 
   void DrawSectorMap()
@@ -288,14 +281,12 @@ public partial class Server : Node
 	  int s = 0 - q - r;
 	  _CreateSector(new Hex(q,r,s));
 	}
-
   }
 
   void DrawStarFieldRing()
   {
 	StarFieldRing.radius = StarFieldRadiusPixels;
 	//StarFieldRing.Update();
-	//3to4 ?
   }
 
   public void InstantiateMissile(SpaceMissile missile)
@@ -324,10 +315,7 @@ public partial class Server : Node
 	  // start with the center
 	  Hex theSector = new Hex(0, 0, 0);
 
-	  //Area2D playerShipThingInstance = (Area2D)PlayerShipThing.Instance();
-	  //3to4
 	  // C# has no preload, so you have to always use ResourceLoader.Load<PackedScene>().
-	  // var player = ResourceLoader.Load<PackedScene>("res://Player.tscn").Instantiate();
 	  Node shipThingsNode = PlayerPackedScene.Instantiate();
 	  PlayerShip newPlayer = shipThingsNode.GetNode<PlayerShip>("PlayerShip");
 
@@ -343,8 +331,6 @@ public partial class Server : Node
 	  newPlayer.MissileDamage = PlayerDefaultMissileDamage;
 
 	  _serilogger.Debug($"Server.cs: Adding {UUID} to playerObjects");
-	  // playerObjects.Add(UUID, playerShipThingInstance);
-	  //3to4
 	  playerObjects.Add(UUID, newPlayer);
 	  newPlayer.AddToGroup("player_ships");
 	
@@ -354,7 +340,6 @@ public partial class Server : Node
 	  // where we have to start calculating ring things
 	  if (playerObjects.Count > 2)
 	  {
-	
 		  // if the ring radius is zero, and we have more than two players, we need
 		  // to increase it, otherwise things will already blow up
 		  if (RingRadius == 0)
@@ -365,7 +350,6 @@ public partial class Server : Node
 	
 		  // it's possible that we have insufficient players in sector 0,0,0, so
 		  // check that first for funzos
-	
 		  int qty;
 		  if (sectorMap.TryGetValue("0,0", out qty))
 		  {
@@ -381,10 +365,10 @@ public partial class Server : Node
 		  }
 	  }
 	
-	_serilogger.Debug($"Server.cs: Selected sector for player {UUID} is {theSector.q},{theSector.r}");
+	  _serilogger.Debug($"Server.cs: Selected sector for player {UUID} is {theSector.q},{theSector.r}");
 	
-	// increment whatever sector this new player is going into
-	string sector_key = theSector.q + "," + theSector.r;
+	  // increment whatever sector this new player is going into
+	  string sector_key = theSector.q + "," + theSector.r;
 	
 	  if (sectorMap.ContainsKey(sector_key))
 	  {
@@ -419,16 +403,11 @@ public partial class Server : Node
 	int finalY = (Int32)theSectorCenter.y + yOffset;
 	_serilogger.Debug($"Server.cs: Placing player at {finalX},{finalY}");
 	
-	//   // playerShipThingInstance.GlobalPosition =
-	//   //3to4
 	newPlayer.GlobalPosition = new Vector2(x: (Int32)theSectorCenter.x + xOffset, y: (Int32)theSectorCenter.y + yOffset);
 	
 	// connect the ship thing input signal so that we can catch when a ship was clicked in the debug UI
-	//3to4
-	newPlayer.Connect("input_event", new Callable(this, "_on_ShipThings_input_event"), 0); // no GodotObject.ConnectFlags?
+	newPlayer.Connect("input_event", new Callable(this, "_on_ShipThings_input_event"), 0);
 	
-	// Players.AddChild(playerShipThingInstance);
-	//3to4
 	Players.AddChild(shipThingsNode);
 	_serilogger.Information($"Server.cs: Added player {UUID} instance!");
 	
@@ -442,24 +421,21 @@ public partial class Server : Node
 
   void ProcessMoveCommand(Command cb)
   {
-	//GD.Print("Server::ProcessMoveCommand for cb.Uuid " + cb.Uuid);
 	_serilogger.Verbose("Server.cs: Processing move command!");
 
 	String uuid = cb.Uuid;
 	Node2D playerRoot;
 	if (false == playerObjects.TryGetValue(uuid, out playerRoot))
 	{
-		//GD.Print("Server::ProcessMoveCommand failed to get playerRoot from playerObjects!");
+		_serilogger.Debug("Server::ProcessMoveCommand failed to get playerRoot from playerObjects! uuid specified: " + uuid);
 		return;
 	}
-	//3to4
-	// PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
 	PlayerShip movePlayer = (PlayerShip)playerRoot;
 	// process thrust and rotation
 	Vector2 thrust = new Vector2(cb.InputX, cb.InputY);
 	// push the thrust input onto the player's array
 	movePlayer.MovementQueue.Enqueue(thrust);
-	//GD.Print("Server::ProcessMoveCommand movePlayer.MovementQueue.Count is " + movePlayer.MovementQueue.Count);
+	_serilogger.Debug("Server::ProcessMoveCommand movePlayer.MovementQueue.Count is " + movePlayer.MovementQueue.Count);
   }
 
   void ProcessShootCommand(Command cb)
@@ -469,8 +445,6 @@ public partial class Server : Node
 	// find the PlayerShip
 	String playerUUID = cb.Uuid;
 	Node2D playerRoot = playerObjects[playerUUID];
-	//3to4
-	//PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
 	PlayerShip movePlayer = (PlayerShip)playerRoot;
 	// TODO: should we perform a check here to see if we should bother firing
 	// the missile, or leave that to the playership.firemissile method alone?
@@ -486,8 +460,8 @@ public partial class Server : Node
 	{
 	  missileUUID = cb.MissileUuid;
 	}
-	_serilogger.Debug($"missile uuid is: {missileUUID}");
-
+	
+	_serilogger.Debug($"firing missile with uuid: {missileUUID}");
 	movePlayer.FireMissile(missileUUID);
   }
 
@@ -503,7 +477,6 @@ public partial class Server : Node
 	  // TODO: should this be a specific leave instead of destroying a player?
 	  RemovePlayer(securityBuffer.Uuid);
 	}
-
   }
 
   void ProcessPlayerJoins()
@@ -526,23 +499,20 @@ public partial class Server : Node
   void ProcessGameEvents()
   {
 	while (GameEventQueue.Count > 0)
-	{
-		//GD.Print("Server::ProcessGameEvents::GameEventQueue.Count > 0");
+	{ 
+	  _serilogger.Debug("Server::ProcessGameEvents::GameEventQueue.Count > 0 and is {GameEventQueue.Count}");
 	  Command commandBuffer = GameEventQueue.Dequeue();
 	  switch (commandBuffer.command_type)
 	  {
 		case Command.CommandType.CommandTypeMove:
-			//GD.Print("Server::ProcessGameEvents::CommandTypeMove");
 		  _serilogger.Verbose("Server.cs: Move command received");
 		  ProcessMoveCommand(commandBuffer);
 		  break;
 		case Command.CommandType.CommandTypeShoot:
-			//GD.Print("Server::ProcessGameEvents::CommandTypeShoot");
 		  _serilogger.Verbose("Server.cs: Shoot command received");
 		  ProcessShootCommand(commandBuffer);
 		  break;
 		case Command.CommandType.CommandTypeUnspecified:
-			//GD.Print("Server::ProcessGameEvents::CommandTypeUnspecified");
 		  _serilogger.Error("Server.cs: Unspecified command received");
 		  break;
 	  }
@@ -551,8 +521,9 @@ public partial class Server : Node
   
   void ProcessSecurityEvents()
   {
-	while (SecurityEventQueue.Count >0)
-	{
+	while (SecurityEventQueue.Count > 0)
+	{ 
+	  _serilogger.Debug("Server::ProcessSecurityEvents::SecurityEventQueue.Count > 0 and is {SecurityEventQueue.Count}");
 	  Security securityBuffer = SecurityEventQueue.Dequeue();
 	  switch (securityBuffer.security_type)
 	  {
@@ -580,7 +551,7 @@ public partial class Server : Node
 
   void ProcessInputEvent(Vector2 velocity, Vector2 shoot)
   {
-	  //GD.Print("Server::ProcessInputEvent");
+	_serilogger.Debug("Server::ProcessInputEvent");
 	// if there is no player in the dictionary, do nothing
 	// this catches accidental keyboard hits
 	if (!playerObjects.ContainsKey(playerID.Text)) { return; }
@@ -598,7 +569,6 @@ public partial class Server : Node
 
 	if (velocity.Length() > 0)
 	{
-		//GD.Print("Server::ProcessInputEvent velocity.Length() > 0");
 	  _serilogger.Verbose("Server.cs: velocity length is greater than zero - move");
 	  Command cb = new Command();
 	  cb.command_type = Command.CommandType.CommandTypeMove;
@@ -611,7 +581,6 @@ public partial class Server : Node
 
 	if (shoot.Length() > 0)
 	{
-		//GD.Print("Server::ProcessInputEvent shoot.Length() > 0");
 	  _serilogger.Verbose("Server.cs: shoot length is greater than zero - shoot");
 	  Command cb = new Command();
 	  cb.command_type = Command.CommandType.CommandTypeShoot;
@@ -621,13 +590,11 @@ public partial class Server : Node
 	  cb.InputY = (int)shoot.Y;
 	  MessageInterface.SendCommand(cb);
 	}
-
   }
 
   // Configuration and Related
   public void SendAnnounceDetails(String UUID)
   {
-
 	// create the announce message
 	Security announceMessage = new Security();
 	announceMessage.security_type = Security.SecurityType.SecurityTypeAnnounce;
@@ -798,7 +765,6 @@ public partial class Server : Node
   // Called every frame. 'delta' is the elapsed time since the previous frame.
   public override void _Process(double delta)
   {
-	// //GD.Print("Server_Process()");
 	ProcessSecurityEvents();
 	ProcessGameEvents();
 	ProcessPlayerRemoval();
@@ -808,39 +774,38 @@ public partial class Server : Node
 	var shoot = Vector2.Zero; // the player's shoot status
 
 	if (Input.IsActionPressed("rotate_right"))
-	{
-		//GD.Print("rotate_right");
+	{ 
+	  _serilogger.Debug("rotate_right");
 	  velocity.X += 1;
 	}
 
 	if (Input.IsActionPressed("rotate_left"))
 	{
-		//GD.Print("rotate_left");
+	  _serilogger.Debug("rotate_left");
 	  velocity.X -= 1;
 	}
 
 	if (Input.IsActionPressed("thrust_forward"))
 	{
-		//GD.Print("thrust_forward");
+	  _serilogger.Debug("thrust_forward");
 	  velocity.Y += 1;
 	}
 
 	if (Input.IsActionPressed("thrust_reverse"))
 	{
-		//GD.Print("thrust_reverse");
+	  _serilogger.Debug("thrust_reverse");
 	  velocity.Y -= 1;
 	}
 
 	if (Input.IsActionPressed("fire"))
 	{
-		//GD.Print("fire");
+	  _serilogger.Debug("fire");
 	  shoot.Y = 1;
 	}
 
 	if ((velocity.Length() > 0) || (shoot.Length() > 0))
 	{
 	  // TODO: this should probably be putting things on the queue instead
-	  //GD.Print("Server::_Process velocity.Length() > 0 || shoot.Length() > 0");
 	  ProcessInputEvent(velocity, shoot);
 	}
 
@@ -875,8 +840,6 @@ public partial class Server : Node
 	  if (!playerCamera.IsCurrent()) 
 	  { 
 		// clear the RTS camera's current
-		//3to4
-		// rtsCamera.ClearCurrent();
 		playerCamera.MakeCurrent(); 
 		playerCamera.GetParent<PlayerShip>().isFocused = true;
 		currentCamera = playerCamera;
@@ -886,8 +849,6 @@ public partial class Server : Node
   
   void _on_UnFocusAPlayer_pressed()
   {
-	//currentCamera.ClearCurrent();
-	//3to4
 	currentCamera.GetParent<PlayerShip>().isFocused = false;
 	currentCamera = null;
 	rtsCamera.MakeCurrent();
@@ -971,9 +932,7 @@ public partial class Server : Node
 	  }
 	  else
 	  {
-		// remove the current rts camera
-		//rtsCamera.ClearCurrent();
-		//3to4
+		// remove the current rts camera?
 
 		// make the player's camera current
 		playerCamera.MakeCurrent();
@@ -1028,8 +987,6 @@ public partial class Server : Node
   // helper functions
   Godot.Collections.Array<Node> _GetNodesFromGroup(string groupName)
   {
-	  //return GetTree().GetNodesInGroup(groupName);
-	  //3to4
 	  Godot.Collections.Array<Node> gca = GetTree().GetNodesInGroup(groupName);
 	  return gca;
   }
@@ -1038,34 +995,19 @@ public partial class Server : Node
   {
 	_serilogger.Debug($"Server.cs: Creating sector node at {theSectorHex.q},{theSectorHex.r}");
 
-	// Sector newSector = aSector.Instance<Sector>();
-	//3to4
 	Node sectorNode = SectorPackedScene.Instantiate();
 	Polygon2D newSector = sectorNode.GetNode<Polygon2D>("SectorPolygon");
 
 	// scale by the sector size given the width of the hex polygon is 50px
-	// HexRatio = (SectorSize / 50) * 2;
-	// newSector.ApplyScale(new Vector2(HexRatio, HexRatio));
-	// newSector.SectorLabel = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
-	// Point sector_center = HexLayout.HexToPixel(theSectorHex);
-	// newSector.Position = new Vector2((float)sector_center.x, (float)sector_center.y);
-	// newSector.AddToGroup("sectors");
-	// SectorMap.AddChild(newSector);
-	
 	HexRatio = (SectorSize / 50) * 2;
 	newSector.ApplyScale(new Vector2(HexRatio, HexRatio));
-	//3to4
-	// newSector.SectorLabel = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
 	Label sectorLabel = sectorNode.GetNode<Label>("SectorLabel");
 	var sectorLabelText = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
-	// //GD.Print("sectorLabelText is ", sectorLabelText);
-	sectorLabel.Text = sectorLabelText;//theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
+	sectorLabel.Text = sectorLabelText;
 	Point sector_center = HexLayout.HexToPixel(theSectorHex);
 	newSector.Position = new Vector2((float)sector_center.x, (float)sector_center.y);
 	sectorLabel.Position = newSector.Position;
 	newSector.AddToGroup("sectors");
-	//3to4
-	// SectorMap.AddChild(newSector);
 	SectorMap.AddChild(sectorNode);
   }
 
@@ -1084,5 +1026,4 @@ public partial class Server : Node
 	}
 	_serilogger.Debug($"Server.cs: New starfield radius is: {StarFieldRadiusPixels}");
   }
-
 }
