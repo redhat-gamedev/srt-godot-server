@@ -506,7 +506,7 @@ public partial class Server : Node
   {
 	while (GameEventQueue.Count > 0)
 	{ 
-	  _serilogger.Debug("Server::ProcessGameEvents::GameEventQueue.Count > 0 and is {GameEventQueue.Count}");
+	  _serilogger.Debug($"Server::ProcessGameEvents::GameEventQueue.Count > 0 and is {GameEventQueue.Count}");
 	  Command commandBuffer = GameEventQueue.Dequeue();
 	  switch (commandBuffer.command_type)
 	  {
@@ -529,7 +529,7 @@ public partial class Server : Node
   {
 	while (SecurityEventQueue.Count > 0)
 	{ 
-	  _serilogger.Debug("Server::ProcessSecurityEvents::SecurityEventQueue.Count > 0 and is {SecurityEventQueue.Count}");
+	  _serilogger.Debug($"Server::ProcessSecurityEvents::SecurityEventQueue.Count > 0 and is {SecurityEventQueue.Count}");
 	  Security securityBuffer = SecurityEventQueue.Dequeue();
 	  switch (securityBuffer.security_type)
 	  {
