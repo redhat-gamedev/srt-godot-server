@@ -1062,6 +1062,7 @@ public partial class Server : Node
 	sectorLabel.Text = sectorLabelText;//theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
 	Point sector_center = HexLayout.HexToPixel(theSectorHex);
 	newSector.Position = new Vector2((float)sector_center.x, (float)sector_center.y);
+	sectorLabel.Position = newSector.Position;
 	newSector.AddToGroup("sectors");
 	//3to4
 	// SectorMap.AddChild(newSector);
