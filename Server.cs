@@ -1,6 +1,8 @@
 using Godot;
 using System;
+using System.IO;
 using System.Collections.Generic;
+using ProtoBuf;
 using redhatgamedev.srt.v1;
 using Serilog;
 
@@ -97,27 +99,73 @@ public class Server : Node
   Camera2D rtsCamera;
   Camera2D currentCamera;
 
+  /* debuggy stuff for messaging */
+  long messageByteTotals;
+  float messageByteTimer;
+  int messageByteTimerTimeMax = 1;
+  long frameCounter;
+  int framePortion;
+
+
+  /* snapshot interpolation things */
+  public UInt32 sequenceNumber = 0;
+
+  // number of ms to wait before sending updates
+  long frameTimerMs = 50;
+  long lastSentTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+  long GetEventMessageBytes(GameEvent gameEvent)
+  {
+    MemoryStream st = new MemoryStream();
+    Serializer.Serialize<GameEvent>(st, gameEvent);
+
+    return st.Length;
+  }
+
   void SendGameUpdates()
   {
-    _serilogger.Verbose("Server.cs: Sending updates about game state to clients");
+    long timeNow = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+    long timeDiff = timeNow - lastSentTime;
+    if (timeDiff < frameTimerMs)
+    {
+      _serilogger.Verbose($"Server.cs: NOT sending message - since last message sent: {timeDiff}ms");
+      return;
+    }
 
+    sequenceNumber++;
+    _serilogger.Verbose("Server.cs: Sending updates about game state to clients");
+    lastSentTime = timeNow;
+    int x;
+
+    x = 0;
     Godot.Collections.Array players = _GetNodesFromGroup("player_ships");
     foreach (PlayerShip player in players)
     {
+      x += 1;
       _serilogger.Verbose($"Server.cs: Sending update for player: {player.uuid}");
       // create the buffer for the specific player
       GameEvent gameEvent = player.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate);
+
+      // add byte totals to counter
+      messageByteTotals += GetEventMessageBytes(gameEvent);
+      _serilogger.Verbose($"Server.cs: Message bytes after players in frame {frameCounter}.{framePortion}.{x}: {messageByteTotals}");
 
       // send the event for the player
       MessageInterface.SendGameEvent(gameEvent);
     }
 
+    x = 0;
     // TODO: we never send a create message for the missile
     foreach (SpaceMissile missile in GetTree().GetNodesInGroup("missiles"))
     {
+      x += 1;
       _serilogger.Verbose($"Server.cs: Processing missile: {missile.uuid}");
       // create the buffer for the missile
       GameEvent gameEvent = missile.CreateMissileGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate, missile.MyPlayer.uuid);
+
+      // add byte totals to counter
+      messageByteTotals += GetEventMessageBytes(gameEvent);
+      _serilogger.Debug($"Server.cs: Verbose bytes after missiles in frame {frameCounter}.{framePortion}.{x}: {messageByteTotals}");
 
       // send the buffer for the missile
       MessageInterface.SendGameEvent(gameEvent);
@@ -731,7 +779,9 @@ public class Server : Node
   public override void _Ready()
   {
     levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Information;
-    _serilogger = new LoggerConfiguration().MinimumLevel.ControlledBy(levelSwitch).WriteTo.Console().CreateLogger();
+    _serilogger = new LoggerConfiguration().MinimumLevel
+      .ControlledBy(levelSwitch).WriteTo
+      .Console(outputTemplate: "[{Timestamp:HH:mm:ss.fff} {Level:u3}] {Message:lj}{NewLine}{Exception}").CreateLogger();
     _serilogger.Information("Server.cs: Space Ring Things (SRT) Game Server");
     _serilogger.Information("Server.cs: Attempting AMQP initialization");
 
@@ -761,11 +811,29 @@ public class Server : Node
     Players = GetNode("Players");
     StarFieldRing = GetNode<StarFieldRadius>("StarFieldRadius");
     DrawStarFieldRing();
+
+    // initialize the message byte debug stuff
+    messageByteTimer = 0;
+    messageByteTotals = 0;
+    frameCounter = 0;
+    framePortion = 0;
   }
 
   // Called every frame. 'delta' is the elapsed time since the previous frame.
   public override void _Process(float delta)
   {
+
+    // calculate message byte stuff
+    messageByteTimer += delta;
+    framePortion += 1;
+    if (messageByteTimer >= messageByteTimerTimeMax)
+    {
+      _serilogger.Debug($"Server.cs: Total message bytes sent last frame is {messageByteTotals}");
+      frameCounter += 1;
+      messageByteTimer = 0;
+      messageByteTotals = 0;
+      framePortion = 0;
+    }
 
     ProcessSecurityEvents();
     ProcessGameEvents();

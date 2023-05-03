@@ -25,32 +25,19 @@ public class SpaceMissile : Area2D
   public GameEvent CreateMissileGameEventBuffer(GameEvent.GameEventType BufferType, String OwnerUUID)
   {
     GameEvent gameEvent = new GameEvent();
-    //egeb.Type = BufferType;
     gameEvent.game_event_type = BufferType;
 
-    //egeb.objectType = EntityGameEventBuffer.EntityGameEventBufferObjectType.Missile;
     gameEvent.game_object_type = GameEvent.GameObjectType.GameObjectTypeMissile;
 
-    //egeb.Uuid = uuid;
     gameEvent.Uuid = uuid;
 
-    //Box2d.PbBody body = new Box2d.PbBody();
-    //body.Type = Box2d.PbBodyType.Kinematic; // not sure if this should maybe be static
+    gameEvent.Sequence = MyServer.sequenceNumber;
 
-    // need to use the GlobalPosition because the ship node ends up being offset
-    // from the parent Node2D
-    //body.Position = new Box2d.PbVec2 
-    //  { 
-    //    X = GlobalPosition.x,
-    //    Y = GlobalPosition.y
-    //  };
     gameEvent.PositionX = (int)GlobalPosition.x;
     gameEvent.PositionY = (int)GlobalPosition.y;
 
-    //body.Angle = RotationDegrees;
     gameEvent.Angle = RotationDegrees;
 
-    //body.AbsoluteVelocity = CurrentVelocity;
     gameEvent.AbsoluteVelocity = MissileSpeed;
 
     gameEvent.OwnerUuid = OwnerUUID;
