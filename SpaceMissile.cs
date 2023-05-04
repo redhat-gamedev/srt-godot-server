@@ -22,40 +22,24 @@ public class SpaceMissile : Area2D
   [Signal]
   public delegate void Hit(PlayerShip HitPlayer);
 
-  public GameEvent CreateMissileGameEventBuffer(GameEvent.GameEventType BufferType, String OwnerUUID)
+  public GameEvent.GameObject CreateMissileGameObjectBuffer(String OwnerUUID)
   {
-    GameEvent gameEvent = new GameEvent();
-    //egeb.Type = BufferType;
-    gameEvent.game_event_type = BufferType;
+    GameEvent.GameObject gameObject = new GameEvent.GameObject();
 
-    //egeb.objectType = EntityGameEventBuffer.EntityGameEventBufferObjectType.Missile;
-    gameEvent.game_object_type = GameEvent.GameObjectType.GameObjectTypeMissile;
+    gameObject.GameObjectType = GameEvent.GameObjectType.GameObjectTypeMissile;
 
-    //egeb.Uuid = uuid;
-    gameEvent.Uuid = uuid;
+    gameObject.Uuid = uuid;
 
-    //Box2d.PbBody body = new Box2d.PbBody();
-    //body.Type = Box2d.PbBodyType.Kinematic; // not sure if this should maybe be static
+    gameObject.PositionX = (int)GlobalPosition.x;
+    gameObject.PositionY = (int)GlobalPosition.y;
 
-    // need to use the GlobalPosition because the ship node ends up being offset
-    // from the parent Node2D
-    //body.Position = new Box2d.PbVec2 
-    //  { 
-    //    X = GlobalPosition.x,
-    //    Y = GlobalPosition.y
-    //  };
-    gameEvent.PositionX = (int)GlobalPosition.x;
-    gameEvent.PositionY = (int)GlobalPosition.y;
+    gameObject.Angle = RotationDegrees;
 
-    //body.Angle = RotationDegrees;
-    gameEvent.Angle = RotationDegrees;
+    gameObject.AbsoluteVelocity = MissileSpeed;
 
-    //body.AbsoluteVelocity = CurrentVelocity;
-    gameEvent.AbsoluteVelocity = MissileSpeed;
+    gameObject.OwnerUuid = OwnerUUID;
 
-    gameEvent.OwnerUuid = OwnerUUID;
-
-    return gameEvent;
+    return gameObject;
   }
   
   // Called when the node enters the scene tree for the first time.

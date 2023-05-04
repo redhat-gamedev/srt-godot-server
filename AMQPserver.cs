@@ -87,7 +87,10 @@ public class AMQPserver : Node
     // updates are not as important, so set a low TTL for those
     if (!(gameEvent.game_event_type == GameEvent.GameEventType.GameEventTypeCreate 
       | gameEvent.game_event_type == GameEvent.GameEventType.GameEventTypeDestroy))
-      { msg.Header = new Header() { Ttl = 250 }; }
+      { 
+        msg.Header = new Header() { Ttl = 50 }; 
+        msg.Properties = new Properties() { CreationTime = DateTime.UtcNow };
+      }
 
     // don't care about the ack on our message being received
     gameEventOutSender.Send(msg, null, null);
