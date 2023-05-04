@@ -135,41 +135,56 @@ public class Server : Node
     sequenceNumber++;
     _serilogger.Verbose("Server.cs: Sending updates about game state to clients");
     lastSentTime = timeNow;
-    int x;
 
-    x = 0;
+    int x = 0;
+
+    // begin to build the GameEvent update
+    GameEvent updateEvent = new GameEvent();
+    updateEvent.Sequence = sequenceNumber;
+    updateEvent.game_event_type = GameEvent.GameEventType.GameEventTypeUpdate;
+
     Godot.Collections.Array players = _GetNodesFromGroup("player_ships");
+    Godot.Collections.Array missiles = GetTree().GetNodesInGroup("missiles");
+
+    if (players.Count == 0 && missiles.Count == 0)
+    {
+      _serilogger.Verbose("Server.cs: No players or missiles in the game");
+      return;
+    }
+
+    // iterate over the player ships and then add their objects to the GameObjects List
     foreach (PlayerShip player in players)
     {
       x += 1;
-      _serilogger.Verbose($"Server.cs: Sending update for player: {player.uuid}");
+      _serilogger.Verbose($"Server.cs: Adding player to game event: {player.uuid}");
       // create the buffer for the specific player
-      GameEvent gameEvent = player.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate);
+      GameEvent.GameObject gameObject = player.CreatePlayerGameObjectBuffer();
 
-      // add byte totals to counter
-      messageByteTotals += GetEventMessageBytes(gameEvent);
-      _serilogger.Verbose($"Server.cs: Message bytes after players in frame {frameCounter}.{framePortion}.{x}: {messageByteTotals}");
-
-      // send the event for the player
-      MessageInterface.SendGameEvent(gameEvent);
+      // add the buffer to the GameObjects List
+      updateEvent.GameObjects.Add(gameObject);
     }
 
     x = 0;
     // TODO: we never send a create message for the missile
+
+    // iterate over the missiles and then add their objects to the GameObjects List
     foreach (SpaceMissile missile in GetTree().GetNodesInGroup("missiles"))
     {
       x += 1;
-      _serilogger.Verbose($"Server.cs: Processing missile: {missile.uuid}");
+      _serilogger.Verbose($"Server.cs: Adding missile to game event: {missile.uuid}");
       // create the buffer for the missile
-      GameEvent gameEvent = missile.CreateMissileGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate, missile.MyPlayer.uuid);
+      GameEvent.GameObject gameObject = missile.CreateMissileGameObjectBuffer(missile.MyPlayer.uuid);
 
-      // add byte totals to counter
-      messageByteTotals += GetEventMessageBytes(gameEvent);
-      _serilogger.Debug($"Server.cs: Verbose bytes after missiles in frame {frameCounter}.{framePortion}.{x}: {messageByteTotals}");
-
-      // send the buffer for the missile
-      MessageInterface.SendGameEvent(gameEvent);
+      // add the buffer to the GameObjects List
+      updateEvent.GameObjects.Add(gameObject);
     }
+
+    // send the update event
+    MessageInterface.SendGameEvent(updateEvent);
+
+    // add byte totals to counter
+    messageByteTotals += GetEventMessageBytes(updateEvent);
+    _serilogger.Verbose($"Server.cs: Message bytes after update in frame {frameCounter}.{framePortion}.{x}: {messageByteTotals}");
   }
 
   // called from the player model
@@ -183,7 +198,11 @@ public class Server : Node
     PlayerShip thePlayer = thePlayerToRemove.GetNode<PlayerShip>("PlayerShip");
 
     // create the buffer for the specific player and send it
-    GameEvent gameEvent = thePlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeDestroy);
+    GameEvent gameEvent = new GameEvent();
+    gameEvent.game_event_type = GameEvent.GameEventType.GameEventTypeDestroy;
+    GameEvent.GameObject gameObject = new GameEvent.GameObject();
+    gameObject = thePlayer.CreatePlayerGameObjectBuffer();
+    gameEvent.GameObjects.Add(gameObject);
 
     // TODO: should this get wrapped with a try or something?
     playerObjects.Remove(UUID);
@@ -200,8 +219,12 @@ public class Server : Node
     // TODO: should this get wrapped with a try or something?
     missile.QueueFree();
 
-    // create the buffer for the specific player and send it
-    GameEvent gameEvent = missile.CreateMissileGameEventBuffer(GameEvent.GameEventType.GameEventTypeDestroy, missile.MyPlayer.uuid);
+    // create the buffer for the missile and send it
+    GameEvent gameEvent = new GameEvent();
+    gameEvent.game_event_type = GameEvent.GameEventType.GameEventTypeDestroy;
+    GameEvent.GameObject gameObject = new GameEvent.GameObject();
+    gameObject = missile.CreateMissileGameObjectBuffer(missile.MyPlayer.uuid);
+    gameEvent.GameObjects.Add(gameObject);
 
     // send the player create event message
     MessageInterface.SendGameEvent(gameEvent);
@@ -344,8 +367,11 @@ public class Server : Node
 
     _serilogger.Debug($"Server.cs: Sending missile creation message for missile {missile.uuid} player {missile.MyPlayer.uuid}");
 
-    // create the protobuf for the player joining
-    GameEvent egeb = missile.CreateMissileGameEventBuffer(GameEvent.GameEventType.GameEventTypeCreate, missile.MyPlayer.uuid);
+    // create a GameEvent for a missile
+    GameEvent egeb = new GameEvent();
+    egeb.game_event_type = GameEvent.GameEventType.GameEventTypeCreate;
+
+    egeb.GameObjects.Add(missile.CreateMissileGameObjectBuffer(missile.MyPlayer.uuid));
 
     // send the missile create event message
     MessageInterface.SendGameEvent(egeb);
@@ -460,11 +486,14 @@ public class Server : Node
     Players.AddChild(playerShipThingInstance);
     _serilogger.Information($"Server.cs: Added player {UUID} instance!");
 
-    // create the protobuf for the player joining
-    GameEvent egeb = newPlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeCreate);
+    // create a GameEvent for the player joining
+    GameEvent egeb = new GameEvent();
+    egeb.game_event_type = GameEvent.GameEventType.GameEventTypeCreate;
+    egeb.GameObjects.Add(newPlayer.CreatePlayerGameObjectBuffer());
 
     // send the player create event message
     MessageInterface.SendGameEvent(egeb);
+
     DrawSectorMap();
   }
 
@@ -828,7 +857,7 @@ public class Server : Node
     framePortion += 1;
     if (messageByteTimer >= messageByteTimerTimeMax)
     {
-      _serilogger.Debug($"Server.cs: Total message bytes sent last frame is {messageByteTotals}");
+      _serilogger.Debug($"Server.cs: Total message bytes sent last second is {messageByteTotals}");
       frameCounter += 1;
       messageByteTimer = 0;
       messageByteTotals = 0;

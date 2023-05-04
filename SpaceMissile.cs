@@ -22,27 +22,24 @@ public class SpaceMissile : Area2D
   [Signal]
   public delegate void Hit(PlayerShip HitPlayer);
 
-  public GameEvent CreateMissileGameEventBuffer(GameEvent.GameEventType BufferType, String OwnerUUID)
+  public GameEvent.GameObject CreateMissileGameObjectBuffer(String OwnerUUID)
   {
-    GameEvent gameEvent = new GameEvent();
-    gameEvent.game_event_type = BufferType;
+    GameEvent.GameObject gameObject = new GameEvent.GameObject();
 
-    gameEvent.game_object_type = GameEvent.GameObjectType.GameObjectTypeMissile;
+    gameObject.GameObjectType = GameEvent.GameObjectType.GameObjectTypeMissile;
 
-    gameEvent.Uuid = uuid;
+    gameObject.Uuid = uuid;
 
-    gameEvent.Sequence = MyServer.sequenceNumber;
+    gameObject.PositionX = (int)GlobalPosition.x;
+    gameObject.PositionY = (int)GlobalPosition.y;
 
-    gameEvent.PositionX = (int)GlobalPosition.x;
-    gameEvent.PositionY = (int)GlobalPosition.y;
+    gameObject.Angle = RotationDegrees;
 
-    gameEvent.Angle = RotationDegrees;
+    gameObject.AbsoluteVelocity = MissileSpeed;
 
-    gameEvent.AbsoluteVelocity = MissileSpeed;
+    gameObject.OwnerUuid = OwnerUUID;
 
-    gameEvent.OwnerUuid = OwnerUUID;
-
-    return gameEvent;
+    return gameObject;
   }
   
   // Called when the node enters the scene tree for the first time.

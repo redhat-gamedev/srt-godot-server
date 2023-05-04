@@ -67,32 +67,28 @@ public class PlayerShip : KinematicBody2D
   public bool isFocused = false;
   Sprite shipSprite;
 
-  public GameEvent CreatePlayerGameEventBuffer(GameEvent.GameEventType eventType)
+  public GameEvent.GameObject CreatePlayerGameObjectBuffer()
   {
-    GameEvent gameEvent = new GameEvent();
+    GameEvent.GameObject gameObject = new GameEvent.GameObject();
 
-    gameEvent.game_event_type = eventType;
+    gameObject.GameObjectType = GameEvent.GameObjectType.GameObjectTypePlayer;
 
-    gameEvent.game_object_type = GameEvent.GameObjectType.GameObjectTypePlayer;
-
-    gameEvent.Uuid = uuid;
-
-    gameEvent.Sequence = MyServer.sequenceNumber;
+    gameObject.Uuid = uuid;
 
     // TODO: only send if changed?
-    gameEvent.PositionX = (int)GlobalPosition.x;
-    gameEvent.PositionY = (int)GlobalPosition.y;
+    gameObject.PositionX = (int)GlobalPosition.x;
+    gameObject.PositionY = (int)GlobalPosition.y;
 
     // TODO: only send if changed?
-    gameEvent.Angle = RotationDegrees;
+    gameObject.Angle = RotationDegrees;
 
-    // TODO: can probably stop sending velocity
-    gameEvent.AbsoluteVelocity = CurrentVelocity;
+    // need to send the velocity because that's how the client shows the speedometer
+    gameObject.AbsoluteVelocity = CurrentVelocity;
     
     // TODO: only send this if it's a change from previous?
-    gameEvent.HitPoints = HitPoints;
+    gameObject.HitPoints = HitPoints;
 
-    return gameEvent;
+    return gameObject;
   }
 
   public void ExpireMissile() 
