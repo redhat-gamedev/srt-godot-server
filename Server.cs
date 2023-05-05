@@ -44,7 +44,8 @@ public partial class Server : Node
 
   [Export]
   public Int32 StarFieldRadiusPixels;
-  public Int32 PreviousStarFieldRadiusPixels;
+  public Int32 PreviousStarFieldRadiusPixels = 1600;
+  private float NewStarFieldRadiusRatio = 1.0f;
 
   // The starfield's center may shift during play at small ring sizes due to the
   // way that sectors are added
@@ -358,12 +359,12 @@ public partial class Server : Node
   void DrawStarFieldRing()
   {
     StarFieldRing.radius = StarFieldRadiusPixels;
-    float newRadiusRatio = 1.0f;
     if (StarFieldRadiusPixels != PreviousStarFieldRadiusPixels)
     {
-      newRadiusRatio = (float)StarFieldRadiusPixels / (float)PreviousStarFieldRadiusPixels;
+      _serilogger.Debug($"Server.cs: StarFieldRing applying scale {StarFieldRing.Scale}");
+      StarFieldRing.ApplyScale(new Vector2(NewStarFieldRadiusRatio, NewStarFieldRadiusRatio));
+      PreviousStarFieldRadiusPixels = StarFieldRadiusPixels;
     }
-    StarFieldRing.ApplyScale(new Vector2(newRadiusRatio, newRadiusRatio));
   }
 
   public void InstantiateMissile(SpaceMissile missile)
@@ -828,6 +829,7 @@ public partial class Server : Node
     // initialize the starfield size to the initial sector size
     // the play area is clamped 
     StarFieldRadiusPixels = SectorSize;
+    PreviousStarFieldRadiusPixels = SectorSize;
 
     // initialize the hexboard layout
     HexLayout = new Layout(Layout.flat, new Point(SectorSize, SectorSize), new Point(0, 0));
@@ -1104,10 +1106,16 @@ public partial class Server : Node
     if (RingRadius == 0)
     {
       StarFieldRadiusPixels = SectorSize;
+      PreviousStarFieldRadiusPixels = SectorSize;
     }
     else
     {
+      PreviousStarFieldRadiusPixels = StarFieldRadiusPixels;
       StarFieldRadiusPixels = (Int32) ((SectorSize / 2) * Mathf.Sqrt(3) * (RingRadius * 2 + 1));
+      if (PreviousStarFieldRadiusPixels != StarFieldRadiusPixels)
+      {
+        NewStarFieldRadiusRatio = (float)StarFieldRadiusPixels / (float)PreviousStarFieldRadiusPixels;
+      }
     }
     _serilogger.Debug($"Server.cs: New starfield radius is: {StarFieldRadiusPixels}");
   }
