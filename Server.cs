@@ -19,8 +19,8 @@ public partial class Server : Node
 
   AMQPserver MessageInterface;
 
-  //[Export]
-  Dictionary<String, Node2D> playerObjects = new Dictionary<string, Node2D>();
+  [Export]
+  Godot.Collections.Dictionary<String, Node2D> playerObjects = new Godot.Collections.Dictionary<string, Node2D>();
 
   // the "width" of a hex is 2 * size
   [Export]
@@ -36,11 +36,11 @@ public partial class Server : Node
 
   // the sector map will only store the number of players in each sector
   // it only gets updated when a new player joins
-  //[Export]
-  Dictionary<String, int> sectorMap = new Dictionary<string, int>();
+  [Export]
+  Godot.Collections.Dictionary<String, int> sectorMap = new Godot.Collections.Dictionary<string, int>();
 
-  //[Export]
-  Dictionary<String, Node2D> sectorNodes = new Dictionary<String, Node2D>();
+  [Export]
+  Godot.Collections.Dictionary<String, Node2D> sectorNodes = new Godot.Collections.Dictionary<String, Node2D>();
 
   [Export]
   public Int32 StarFieldRadiusPixels;
