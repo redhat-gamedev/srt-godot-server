@@ -1,6 +1,8 @@
 using Godot;
 using System;
+using System.IO;
 using System.Collections.Generic;
+using ProtoBuf;
 using redhatgamedev.srt.v1;
 using Serilog;
 
@@ -98,31 +100,92 @@ public partial class Server : Node
   Camera2D rtsCamera;
   Camera2D currentCamera;
 
+  /* debuggy stuff for messaging */
+  long messageByteTotals;
+  float messageByteTimer;
+  int messageByteTimerTimeMax = 1;
+  long frameCounter;
+  int framePortion;
+
+
+  /* snapshot interpolation things */
+  public UInt32 sequenceNumber = 0;
+
+  // number of ms to wait before sending updates
+  long frameTimerMs = 50;
+  long lastSentTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+  long GetEventMessageBytes(GameEvent gameEvent)
+  {
+    MemoryStream st = new MemoryStream();
+    Serializer.Serialize<GameEvent>(st, gameEvent);
+
+    return st.Length;
+  }
+
   void SendGameUpdates()
   {
-    _serilogger.Verbose("Server.cs: Sending updates about game state to clients");
+    long timeNow = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+    long timeDiff = timeNow - lastSentTime;
+    if (timeDiff < frameTimerMs)
+    {
+      _serilogger.Verbose($"Server.cs: NOT sending message - since last message sent: {timeDiff}ms");
+      return;
+    }
 
-    Godot.Collections.Array<Node> players = _GetNodesFromGroup("player_ships");
+    sequenceNumber++;
+    _serilogger.Verbose("Server.cs: Sending updates about game state to clients");
+    lastSentTime = timeNow;
+
+    int x = 0;
+
+    // begin to build the GameEvent update
+    GameEvent updateEvent = new GameEvent();
+    updateEvent.Sequence = sequenceNumber;
+    updateEvent.game_event_type = GameEvent.GameEventType.GameEventTypeUpdate;
+
+    Godot.Collections.Array players = _GetNodesFromGroup("player_ships");
+    Godot.Collections.Array<Node> missiles = GetTree().GetNodesInGroup("missiles");
+
+    if (players.Count == 0 && missiles.Count == 0)
+    {
+      _serilogger.Verbose("Server.cs: No players or missiles in the game");
+      return;
+    }
+
+    // iterate over the player ships and then add their objects to the GameObjects List
     foreach (PlayerShip player in players)
     {
-      _serilogger.Verbose($"Server.cs: Sending update for player: {player.uuid}");
+      x += 1;
+      _serilogger.Verbose($"Server.cs: Adding player to game event: {player.uuid}");
       // create the buffer for the specific player
-      GameEvent gameEvent = player.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate);
+      GameEvent.GameObject gameObject = player.CreatePlayerGameObjectBuffer();
 
-      // send the event for the player
-      MessageInterface.SendGameEvent(gameEvent);
+      // add the buffer to the GameObjects List
+      updateEvent.GameObjects.Add(gameObject);
     }
 
+    x = 0;
     // TODO: we never send a create message for the missile
+
+    // iterate over the missiles and then add their objects to the GameObjects List
     foreach (SpaceMissile missile in GetTree().GetNodesInGroup("missiles"))
     {
-      _serilogger.Verbose($"Server.cs: Processing missile: {missile.uuid}");
+      x += 1;
+      _serilogger.Verbose($"Server.cs: Adding missile to game event: {missile.uuid}");
       // create the buffer for the missile
-      GameEvent gameEvent = missile.CreateMissileGameEventBuffer(GameEvent.GameEventType.GameEventTypeUpdate, missile.MyPlayer.uuid);
+      GameEvent.GameObject gameObject = missile.CreateMissileGameObjectBuffer(missile.MyPlayer.uuid);
 
-      // send the buffer for the missile
-      MessageInterface.SendGameEvent(gameEvent);
+      // add the buffer to the GameObjects List
+      updateEvent.GameObjects.Add(gameObject);
     }
+
+    // send the update event
+    MessageInterface.SendGameEvent(updateEvent);
+
+    // add byte totals to counter
+    messageByteTotals += GetEventMessageBytes(updateEvent);
+    _serilogger.Verbose($"Server.cs: Message bytes after update in frame {frameCounter}.{framePortion}.{x}: {messageByteTotals}");
   }
 
   // called from the player model
@@ -137,7 +200,11 @@ public partial class Server : Node
     Node thePlayerParent = thePlayer.GetParent();
 
     // create the buffer for the specific player and send it
-    GameEvent gameEvent = thePlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeDestroy);
+    GameEvent gameEvent = new GameEvent();
+    gameEvent.game_event_type = GameEvent.GameEventType.GameEventTypeDestroy;
+    GameEvent.GameObject gameObject = new GameEvent.GameObject();
+    gameObject = thePlayer.CreatePlayerGameObjectBuffer();
+    gameEvent.GameObjects.Add(gameObject);
 
     // TODO: should this get wrapped with a try or something?
     playerObjects.Remove(UUID);
@@ -154,8 +221,12 @@ public partial class Server : Node
     // TODO: should this get wrapped with a try or something?
     missile.QueueFree();
 
-    // create the buffer for the specific player and send it
-    GameEvent gameEvent = missile.CreateMissileGameEventBuffer(GameEvent.GameEventType.GameEventTypeDestroy, missile.MyPlayer.uuid);
+    // create the buffer for the missile and send it
+    GameEvent gameEvent = new GameEvent();
+    gameEvent.game_event_type = GameEvent.GameEventType.GameEventTypeDestroy;
+    GameEvent.GameObject gameObject = new GameEvent.GameObject();
+    gameObject = missile.CreateMissileGameObjectBuffer(missile.MyPlayer.uuid);
+    gameEvent.GameObjects.Add(gameObject);
 
     // send the player create event message
     MessageInterface.SendGameEvent(gameEvent);
@@ -283,7 +354,7 @@ public partial class Server : Node
       _CreateSector(new Hex(q,r,s));
     }
   }
-  
+
   void DrawStarFieldRing()
   {
     StarFieldRing.radius = StarFieldRadiusPixels;
@@ -301,8 +372,11 @@ public partial class Server : Node
 
     _serilogger.Debug($"Server.cs: Sending missile creation message for missile {missile.uuid} player {missile.MyPlayer.uuid}");
 
-    // create the protobuf for the player joining
-    GameEvent egeb = missile.CreateMissileGameEventBuffer(GameEvent.GameEventType.GameEventTypeCreate, missile.MyPlayer.uuid);
+    // create a GameEvent for a missile
+    GameEvent egeb = new GameEvent();
+    egeb.game_event_type = GameEvent.GameEventType.GameEventTypeCreate;
+
+    egeb.GameObjects.Add(missile.CreateMissileGameObjectBuffer(missile.MyPlayer.uuid));
 
     // send the missile create event message
     MessageInterface.SendGameEvent(egeb);
@@ -310,16 +384,16 @@ public partial class Server : Node
 
   void InstantiatePlayer(String UUID)
   {
-      // Update the sector map in preparation for traversing the rings, expanding
-      // the radius, and etc.  need to do this before adding the new player object
-      // because we don't know where that player will go until we traverse the
-      // existing sectors, and because the physics process will kick in as soon
-      // as the node is created
-      _serilogger.Debug($"Server.cs: Instantiating player {UUID}");
-      UpdateSectorMap();
+    // Update the sector map in preparation for traversing the rings, expanding
+    // the radius, and etc.  need to do this before adding the new player object
+    // because we don't know where that player will go until we traverse the
+    // existing sectors, and because the physics process will kick in as soon
+    // as the node is created
+    _serilogger.Debug($"Server.cs: Instantiating player {UUID}");
+    UpdateSectorMap();
 
-      // start with the center
-      Hex theSector = new Hex(0, 0, 0);
+    // start with the center
+    Hex theSector = new Hex(0, 0, 0);
 
       // C# has no preload, so you have to always use ResourceLoader.Load<PackedScene>().
       Node shipThingsNode = PlayerPackedScene.Instantiate();
@@ -327,80 +401,81 @@ public partial class Server : Node
 
       newPlayer.uuid = UUID;
 
-      // assign the configured values
-      newPlayer.Thrust = PlayerDefaultThrust;
-      newPlayer.MaxSpeed = PlayerDefaultMaxSpeed;
-      newPlayer.RotationThrust = PlayerDefaultRotationThrust;
-      newPlayer.HitPoints = PlayerDefaultHitPoints;
-      newPlayer.MissileSpeed = PlayerDefaultMissileSpeed;
-      newPlayer.MissileLife = PlayerDefaultMissileLife;
-      newPlayer.MissileDamage = PlayerDefaultMissileDamage;
+    // assign the configured values
+    newPlayer.Thrust = PlayerDefaultThrust;
+    newPlayer.MaxSpeed = PlayerDefaultMaxSpeed;
+    newPlayer.RotationThrust = PlayerDefaultRotationThrust;
+    newPlayer.HitPoints = PlayerDefaultHitPoints;
+    newPlayer.MissileSpeed = PlayerDefaultMissileSpeed;
+    newPlayer.MissileLife = PlayerDefaultMissileLife;
+    newPlayer.MissileDamage = PlayerDefaultMissileDamage;
 
-      _serilogger.Debug($"Server.cs: Adding {UUID} to playerObjects");
-      playerObjects.Add(UUID, newPlayer);
-      newPlayer.AddToGroup("player_ships");
-    
-      _serilogger.Debug($"Server.cs: Current count of playerObjects: {playerObjects.Count}");
-    
-      // if there are more than two players, it means we are now at the point
-      // where we have to start calculating ring things
-      if (playerObjects.Count > 2)
+    _serilogger.Debug($"Server.cs: Adding {UUID} to playerObjects");
+    playerObjects.Add(UUID, newPlayer);
+    newPlayer.AddToGroup("player_ships");
+
+    _serilogger.Debug($"Server.cs: Current count of playerObjects: {playerObjects.Count}");
+
+    // if there are more than two players, it means we are now at the point
+    // where we have to start calculating ring things
+    if (playerObjects.Count > 2)
+    {
+
+      // if the ring radius is zero, and we have more than two players, we need
+      // to increase it, otherwise things will already blow up
+      if (RingRadius == 0)
       {
-          // if the ring radius is zero, and we have more than two players, we need
-          // to increase it, otherwise things will already blow up
-          if (RingRadius == 0)
-          {
-              _serilogger.Debug($"Server.cs: playerObjects count > 2 and ringradius == 0 so incrementing");
-              RingRadius++;
-          }
-    
-          // it's possible that we have insufficient players in sector 0,0,0, so
-          // check that first for funzos
-          int qty;
-          if (sectorMap.TryGetValue("0,0", out qty))
-          {
-              if (qty < 2)
-              {
-                  // do nothing since we already assigned the sector to use to 0,0,0
-                  _serilogger.Debug($"Server.cs: Insufficient players in sector 0 so will add player there");
-              }
-              else
-              {
-                  theSector = TraverseSectors();
-              }
-          }
+        _serilogger.Debug($"Server.cs: playerObjects count > 2 and ringradius == 0 so incrementing");
+        RingRadius++;
       }
-    
-      _serilogger.Debug($"Server.cs: Selected sector for player {UUID} is {theSector.q},{theSector.r}");
-    
-      // increment whatever sector this new player is going into
-      string sector_key = theSector.q + "," + theSector.r;
-    
-      if (sectorMap.ContainsKey(sector_key))
+
+      // it's possible that we have insufficient players in sector 0,0,0, so
+      // check that first for funzos
+
+      int qty;
+      if (sectorMap.TryGetValue("0,0", out qty))
       {
-          sectorMap[sector_key] += 1;
+        if (qty < 2)
+        {
+          // do nothing since we already assigned the sector to use to 0,0,0
+          _serilogger.Debug($"Server.cs: Insufficient players in sector 0 so will add player there");
+        }
+        else
+        {
+          theSector = TraverseSectors();
+        }
       }
-      else
-      {
-          sectorMap[sector_key] = 1;
-      }
+    }
     
-      _serilogger.Debug($"Server.cs: Sector {theSector.q},{theSector.r} now has {sectorMap[sector_key]}");
-    
-      // reset the starfield radius - should also move the center
-      _CalcStarFieldRadius();
-      DrawStarFieldRing();
-    
-      // now that the sector to insert the player has been selected, find its
-      // pixel center
-      Point theSectorCenter = HexLayout.HexToPixel(theSector);
-      _serilogger.Debug($"Server.cs: Center of selected sector: {theSectorCenter.x},{theSectorCenter.y}");
-    
+    _serilogger.Debug($"Server.cs: Selected sector for player {UUID} is {theSector.q},{theSector.r}");
+
+    // increment whatever sector this new player is going into
+    string sector_key = theSector.q + "," + theSector.r;
+
+    if (sectorMap.ContainsKey(sector_key))
+    {
+      sectorMap[sector_key] += 1;
+    }
+    else
+    {
+      sectorMap[sector_key] = 1;
+    }
+    _serilogger.Debug($"Server.cs: Sector {theSector.q},{theSector.r} now has {sectorMap[sector_key]}");
+
+    // reset the starfield radius - should also move the center
+    _CalcStarFieldRadius();
+    DrawStarFieldRing();
+
+    // now that the sector to insert the player has been selected, find its
+    // pixel center
+    Point theSectorCenter = HexLayout.HexToPixel(theSector);
+    _serilogger.Debug($"Server.cs: Center of selected sector: {theSectorCenter.x},{theSectorCenter.y}");
+
     // TODO: need to ensure players are not on top of one another for real.  we
     // will spawn two players into a sector to start, so we should check if
     // there's already a player in the sector first. if there is, we should
     // place the new player equidistant from the already present player
-    
+
     // badly randomize start position
     int theMin = (int)(SectorSize * 0.3);
     int xOffset = rnd.Next(-1 * theMin, theMin);
@@ -416,10 +491,12 @@ public partial class Server : Node
     
     Players.AddChild(shipThingsNode);
     _serilogger.Information($"Server.cs: Added player {UUID} instance!");
-    
-    // create the protobuf for the player joining
-    GameEvent egeb = newPlayer.CreatePlayerGameEventBuffer(GameEvent.GameEventType.GameEventTypeCreate);
-    
+
+    // create a GameEvent for the player joining
+    GameEvent egeb = new GameEvent();
+    egeb.game_event_type = GameEvent.GameEventType.GameEventTypeCreate;
+    egeb.GameObjects.Add(newPlayer.CreatePlayerGameObjectBuffer());
+
     // send the player create event message
     MessageInterface.SendGameEvent(egeb);
     DrawSectorMap();
@@ -466,8 +543,8 @@ public partial class Server : Node
     {
       missileUUID = cb.MissileUuid;
     }
-    
-    _serilogger.Debug($"firing missile with uuid: {missileUUID}");
+    _serilogger.Debug($"missile uuid is: {missileUUID}");
+
     movePlayer.FireMissile(missileUUID);
   }
 
@@ -557,7 +634,6 @@ public partial class Server : Node
 
   void ProcessInputEvent(Vector2 velocity, Vector2 shoot)
   {
-    _serilogger.Debug("Server::ProcessInputEvent");
     // if there is no player in the dictionary, do nothing
     // this catches accidental keyboard hits
     if (!playerObjects.ContainsKey(playerID.Text)) { return; }
@@ -601,6 +677,7 @@ public partial class Server : Node
   // Configuration and Related
   public void SendAnnounceDetails(String UUID)
   {
+
     // create the announce message
     Security announceMessage = new Security();
     announceMessage.security_type = Security.SecurityType.SecurityTypeAnnounce;
@@ -719,7 +796,7 @@ public partial class Server : Node
     uiPlayerTree.Clear();
     TreeItem UIPlayerTreeRoot = uiPlayerTree.CreateItem();
 
-    Godot.Collections.Array<Node> players = _GetNodesFromGroup("player_ships");
+    Godot.Collections.Array players = _GetNodesFromGroup("player_ships");
     foreach (PlayerShip player in players)
     {
       TreeItem playerTreeItem = uiPlayerTree.CreateItem(UIPlayerTreeRoot);
@@ -751,7 +828,6 @@ public partial class Server : Node
     // initialize the starfield size to the initial sector size
     // the play area is clamped 
     StarFieldRadiusPixels = SectorSize;
-    PreviousStarFieldRadiusPixels = SectorSize;
 
     // initialize the hexboard layout
     HexLayout = new Layout(Layout.flat, new Point(SectorSize, SectorSize), new Point(0, 0));
@@ -770,8 +846,9 @@ public partial class Server : Node
   }
 
   // Called every frame. 'delta' is the elapsed time since the previous frame.
-  public override void _Process(double delta)
+  public override void _Process(float delta)
   {
+
     ProcessSecurityEvents();
     ProcessGameEvents();
     ProcessPlayerRemoval();
@@ -781,33 +858,28 @@ public partial class Server : Node
     var shoot = Vector2.Zero; // the player's shoot status
 
     if (Input.IsActionPressed("rotate_right"))
-    { 
-      _serilogger.Debug("rotate_right");
-      velocity.X += 1;
+    {
+      velocity.x += 1;
     }
 
     if (Input.IsActionPressed("rotate_left"))
     {
-      _serilogger.Debug("rotate_left");
-      velocity.X -= 1;
+      velocity.x -= 1;
     }
 
     if (Input.IsActionPressed("thrust_forward"))
     {
-      _serilogger.Debug("thrust_forward");
-      velocity.Y += 1;
+      velocity.y += 1;
     }
 
     if (Input.IsActionPressed("thrust_reverse"))
     {
-      _serilogger.Debug("thrust_reverse");
-      velocity.Y -= 1;
+      velocity.y -= 1;
     }
 
     if (Input.IsActionPressed("fire"))
     {
-      _serilogger.Debug("fire");
-      shoot.Y = 1;
+      shoot.y = 1;
     }
 
     if ((velocity.Length() > 0) || (shoot.Length() > 0))
@@ -844,9 +916,10 @@ public partial class Server : Node
     {
       Node2D playerForCamera = playerObjects[playerID.Text];
       Camera2D playerCamera = playerForCamera.GetNode<Camera2D>("PlayerShip/Camera2D");
-      if (!playerCamera.IsCurrent()) 
+      if (!playerCamera.Current) 
       { 
         // clear the RTS camera's current
+        rtsCamera.ClearCurrent();
         playerCamera.MakeCurrent(); 
         playerCamera.GetParent<PlayerShip>().isFocused = true;
         currentCamera = playerCamera;
@@ -856,6 +929,7 @@ public partial class Server : Node
   
   void _on_UnFocusAPlayer_pressed()
   {
+    currentCamera.ClearCurrent();
     currentCamera.GetParent<PlayerShip>().isFocused = false;
     currentCamera = null;
     rtsCamera.MakeCurrent();
@@ -932,14 +1006,15 @@ public partial class Server : Node
     {
       _serilogger.Debug($"Server.cs: player {theClickedPlayer.uuid} clicked - making current");
       Camera2D playerCamera = theClickedPlayer.GetNode<Camera2D>("Camera2D");
-      if (playerCamera.IsCurrent())
+      if (playerCamera.Current)
       {
         _serilogger.Debug($"Server.cs: player {theClickedPlayer.uuid} camera already current, skipping");
         return;
       }
       else
       {
-        // remove the current rts camera?
+        // remove the current rts camera
+        rtsCamera.ClearCurrent();
 
         // make the player's camera current
         playerCamera.MakeCurrent();
@@ -992,32 +1067,27 @@ public partial class Server : Node
   }
 
   // helper functions
-  Godot.Collections.Array<Node> _GetNodesFromGroup(string groupName)
+  Godot.Collections.Array _GetNodesFromGroup(string groupName)
   {
-      Godot.Collections.Array<Node> gca = GetTree().GetNodesInGroup(groupName);
-      return gca;
+    return GetTree().GetNodesInGroup(groupName);
   }
 
   void _CreateSector(Hex theSectorHex)
   {
     _serilogger.Debug($"Server.cs: Creating sector node at {theSectorHex.q},{theSectorHex.r}");
 
-    Node sectorNode = SectorPackedScene.Instantiate();
-    Polygon2D newSector = sectorNode.GetNode<Polygon2D>("SectorPolygon");
+    Sector newSector = aSector.Instance<Sector>();
 
     // scale by the sector size given the width of the hex polygon is 50px
     HexRatio = (SectorSize / 50) * 2;
     newSector.ApplyScale(new Vector2(HexRatio, HexRatio));
-    Label sectorLabel = sectorNode.GetNode<Label>("SectorLabel");
-    var sectorLabelText = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
-    sectorLabel.Text = sectorLabelText;
+    newSector.SectorLabel = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
     Point sector_center = HexLayout.HexToPixel(theSectorHex);
     newSector.Position = new Vector2((float)sector_center.x, (float)sector_center.y);
-    sectorLabel.Position = newSector.Position;
     newSector.AddToGroup("sectors");
-    SectorMap.AddChild(sectorNode);
+    SectorMap.AddChild(newSector);
   }
-  
+
   void _CalcStarFieldRadius()
   {
     // if the ring radius is odd, we need to multiply by 3 instead of 2
@@ -1026,14 +1096,12 @@ public partial class Server : Node
     if (RingRadius == 0)
     {
       StarFieldRadiusPixels = SectorSize;
-      PreviousStarFieldRadiusPixels = SectorSize;
     }
     else
     {
-      PreviousStarFieldRadiusPixels = StarFieldRadiusPixels;
       StarFieldRadiusPixels = (Int32) ((SectorSize / 2) * Mathf.Sqrt(3) * (RingRadius * 2 + 1));
     }
-    _serilogger.Debug($"Server.cs: Previous starfield radius is: {PreviousStarFieldRadiusPixels}");
     _serilogger.Debug($"Server.cs: New starfield radius is: {StarFieldRadiusPixels}");
   }
+
 }

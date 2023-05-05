@@ -69,42 +69,28 @@ public partial class PlayerShip : CharacterBody2D
   public bool isFocused = false;
   Sprite2D shipSprite;
 
-  public GameEvent CreatePlayerGameEventBuffer(GameEvent.GameEventType eventType)
+  public GameEvent.GameObject CreatePlayerGameObjectBuffer()
   {
-    //EntityGameEventBuffer egeb = new EntityGameEventBuffer();
-    GameEvent gameEvent = new GameEvent();
+    GameEvent.GameObject gameObject = new GameEvent.GameObject();
 
-    //egeb.Type = BufferType;
-    gameEvent.game_event_type = eventType;
+    gameObject.GameObjectType = GameEvent.GameObjectType.GameObjectTypePlayer;
 
-    //egeb.objectType = EntityGameEventBuffer.EntityGameEventBufferObjectType.Player;
-    gameEvent.game_object_type = GameEvent.GameObjectType.GameObjectTypePlayer;
+    gameObject.Uuid = uuid;
 
-    //egeb.Uuid = uuid;
-    gameEvent.Uuid = uuid;
+    // TODO: only send if changed?
+    gameObject.PositionX = (int)GlobalPosition.X;
+    gameObject.PositionY = (int)GlobalPosition.Y;
 
-    //Box2d.PbBody body = new Box2d.PbBody();
-    //body.Type = Box2d.PbBodyType.Kinematic; // not sure if this should maybe be static
+    // TODO: only send if changed?
+    gameObject.Angle = RotationDegrees;
 
-    // need to use the GlobalPosition because the ship node ends up being offset
-    // from the parent Node2D
-    //body.Position = new Box2d.PbVec2 
-    //  { 
-    //    X = GlobalPosition.x,
-    //    Y = GlobalPosition.y
-    //  };
-    gameEvent.PositionX = (int)GlobalPosition.X;
-    gameEvent.PositionY = (int)GlobalPosition.Y;
-
-    //body.Angle = RotationDegrees;
-    gameEvent.Angle = RotationDegrees;
-
-    //body.AbsoluteVelocity = CurrentVelocity;
-    gameEvent.AbsoluteVelocity = (float)CurrentVelocity;
+    // need to send the velocity because that's how the client shows the speedometer
+    gameObject.AbsoluteVelocity = (float)CurrentVelocity;
     
-    gameEvent.HitPoints = HitPoints;
+    // TODO: only send this if it's a change from previous?
+    gameObject.HitPoints = HitPoints;
 
-    return gameEvent;
+    return gameObject;
   }
 
   public void ExpireMissile() 
@@ -262,7 +248,6 @@ public partial class PlayerShip : CharacterBody2D
   }
   public override void _PhysicsProcess(double delta)
   {
-      // //GD.Print("PlayerShip::_PhysicsProcess");
     if (shipThing == null) shipThing = (Node2D)GetParent();
 
     // somewhat based on: https://kidscancode.org/godot_recipes/2d/topdown_movement/
@@ -320,4 +305,5 @@ public partial class PlayerShip : CharacterBody2D
       GlobalPosition = newPosition;
     }
   }
+
 }
