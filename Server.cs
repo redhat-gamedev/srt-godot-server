@@ -144,7 +144,7 @@ public partial class Server : Node
     updateEvent.Sequence = sequenceNumber;
     updateEvent.game_event_type = GameEvent.GameEventType.GameEventTypeUpdate;
 
-    Godot.Collections.Array players = _GetNodesFromGroup("player_ships");
+    Godot.Collections.Array<Node> players = _GetNodesFromGroup("player_ships");
     Godot.Collections.Array<Node> missiles = GetTree().GetNodesInGroup("missiles");
 
     if (players.Count == 0 && missiles.Count == 0)
@@ -796,7 +796,7 @@ public partial class Server : Node
     uiPlayerTree.Clear();
     TreeItem UIPlayerTreeRoot = uiPlayerTree.CreateItem();
 
-    Godot.Collections.Array players = _GetNodesFromGroup("player_ships");
+    Godot.Collections.Array<Node> players = _GetNodesFromGroup("player_ships");
     foreach (PlayerShip player in players)
     {
       TreeItem playerTreeItem = uiPlayerTree.CreateItem(UIPlayerTreeRoot);
@@ -846,7 +846,7 @@ public partial class Server : Node
   }
 
   // Called every frame. 'delta' is the elapsed time since the previous frame.
-  public override void _Process(float delta)
+  public override void _Process(double delta)
   {
 
     ProcessSecurityEvents();
@@ -859,27 +859,27 @@ public partial class Server : Node
 
     if (Input.IsActionPressed("rotate_right"))
     {
-      velocity.x += 1;
+      velocity.X += 1;
     }
 
     if (Input.IsActionPressed("rotate_left"))
     {
-      velocity.x -= 1;
+      velocity.X -= 1;
     }
 
     if (Input.IsActionPressed("thrust_forward"))
     {
-      velocity.y += 1;
+      velocity.Y += 1;
     }
 
     if (Input.IsActionPressed("thrust_reverse"))
     {
-      velocity.y -= 1;
+      velocity.Y -= 1;
     }
 
     if (Input.IsActionPressed("fire"))
     {
-      shoot.y = 1;
+      shoot.Y = 1;
     }
 
     if ((velocity.Length() > 0) || (shoot.Length() > 0))
@@ -916,10 +916,10 @@ public partial class Server : Node
     {
       Node2D playerForCamera = playerObjects[playerID.Text];
       Camera2D playerCamera = playerForCamera.GetNode<Camera2D>("PlayerShip/Camera2D");
-      if (!playerCamera.Current) 
+      if (!playerCamera.IsCurrent()) 
       { 
         // clear the RTS camera's current
-        rtsCamera.ClearCurrent();
+        // rtsCamera.ClearCurrent();
         playerCamera.MakeCurrent(); 
         playerCamera.GetParent<PlayerShip>().isFocused = true;
         currentCamera = playerCamera;
@@ -929,7 +929,7 @@ public partial class Server : Node
   
   void _on_UnFocusAPlayer_pressed()
   {
-    currentCamera.ClearCurrent();
+    // currentCamera.ClearCurrent();
     currentCamera.GetParent<PlayerShip>().isFocused = false;
     currentCamera = null;
     rtsCamera.MakeCurrent();
@@ -1006,7 +1006,7 @@ public partial class Server : Node
     {
       _serilogger.Debug($"Server.cs: player {theClickedPlayer.uuid} clicked - making current");
       Camera2D playerCamera = theClickedPlayer.GetNode<Camera2D>("Camera2D");
-      if (playerCamera.Current)
+      if (playerCamera.IsCurrent())
       {
         _serilogger.Debug($"Server.cs: player {theClickedPlayer.uuid} camera already current, skipping");
         return;
@@ -1014,7 +1014,7 @@ public partial class Server : Node
       else
       {
         // remove the current rts camera
-        rtsCamera.ClearCurrent();
+        // rtsCamera.ClearCurrent();
 
         // make the player's camera current
         playerCamera.MakeCurrent();
@@ -1067,25 +1067,33 @@ public partial class Server : Node
   }
 
   // helper functions
-  Godot.Collections.Array _GetNodesFromGroup(string groupName)
+  Godot.Collections.Array<Node> _GetNodesFromGroup(string groupName)
   {
-    return GetTree().GetNodesInGroup(groupName);
+    //return GetTree().GetNodesInGroup(groupName);
+    Godot.Collections.Array<Node> gca = GetTree().GetNodesInGroup(groupName);
+    return gca;
   }
 
   void _CreateSector(Hex theSectorHex)
   {
     _serilogger.Debug($"Server.cs: Creating sector node at {theSectorHex.q},{theSectorHex.r}");
 
-    Sector newSector = aSector.Instance<Sector>();
+    // Sector newSector = aSector.Instance<Sector>();
+    Node sectorNode = SectorPackedScene.Instantiate();
+    Polygon2D newSector = sectorNode.GetNode<Polygon2D>("SectorPolygon");
+    
 
     // scale by the sector size given the width of the hex polygon is 50px
     HexRatio = (SectorSize / 50) * 2;
     newSector.ApplyScale(new Vector2(HexRatio, HexRatio));
-    newSector.SectorLabel = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
+    Label sectorLabel = sectorNode.GetNode<Label>("SectorLabel");
+    var sectorLabelText = theSectorHex.q.ToString() + "," + theSectorHex.r.ToString();
+    sectorLabel.Text = sectorLabelText;
     Point sector_center = HexLayout.HexToPixel(theSectorHex);
     newSector.Position = new Vector2((float)sector_center.x, (float)sector_center.y);
+    sectorLabel.Position = newSector.Position;
     newSector.AddToGroup("sectors");
-    SectorMap.AddChild(newSector);
+    SectorMap.AddChild(sectorNode);
   }
 
   void _CalcStarFieldRadius()
