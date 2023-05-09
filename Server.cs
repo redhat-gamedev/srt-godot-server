@@ -507,19 +507,19 @@ public partial class Server : Node
   {
     _serilogger.Verbose("Server.cs: Processing move command!");
 
-    String uuid = cb.Uuid;
+    String playerUUID = cb.Uuid;
     Node2D playerRoot;
-    if (false == playerObjects.TryGetValue(uuid, out playerRoot))
+    if (false == playerObjects.TryGetValue(playerUUID, out playerRoot))
     {
-        _serilogger.Debug("Server::ProcessMoveCommand failed to get playerRoot from playerObjects! uuid specified: " + uuid);
+        _serilogger.Debug($"Server.cs: ProcessMoveCommand failed to get playerRoot from playerObjects! uuid specified: {playerUUID}");
         return;
     }
-    PlayerShip movePlayer = (PlayerShip)playerRoot;
+    PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
     // process thrust and rotation
     Vector2 thrust = new Vector2(cb.InputX, cb.InputY);
     // push the thrust input onto the player's array
     movePlayer.MovementQueue.Enqueue(thrust);
-    _serilogger.Debug("Server::ProcessMoveCommand movePlayer.MovementQueue.Count is " + movePlayer.MovementQueue.Count);
+    _serilogger.Verbose("Server.cs: ProcessMoveCommand movePlayer.MovementQueue.Count is " + movePlayer.MovementQueue.Count);
   }
 
   void ProcessShootCommand(Command cb)
@@ -528,8 +528,14 @@ public partial class Server : Node
 
     // find the PlayerShip
     String playerUUID = cb.Uuid;
-    Node2D playerRoot = playerObjects[playerUUID];
-    PlayerShip movePlayer = (PlayerShip)playerRoot;
+    Node2D playerRoot;
+    if (false == playerObjects.TryGetValue(playerUUID, out playerRoot))
+    {
+        _serilogger.Debug($"Server.cs: ProcessShootCommand failed to get playerRoot from playerObjects! uuid specified: {playerUUID}");
+        return;
+    }
+
+    PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
     // TODO: should we perform a check here to see if we should bother firing
     // the missile, or leave that to the playership.firemissile method alone?
 
@@ -584,7 +590,7 @@ public partial class Server : Node
   {
     while (GameEventQueue.Count > 0)
     { 
-      _serilogger.Debug($"Server::ProcessGameEvents::GameEventQueue.Count > 0 and is {GameEventQueue.Count}");
+      _serilogger.Verbose($"Server.cs: ProcessGameEvents::GameEventQueue.Count > 0 and is {GameEventQueue.Count}");
       Command commandBuffer = GameEventQueue.Dequeue();
       switch (commandBuffer.command_type)
       {
@@ -607,7 +613,7 @@ public partial class Server : Node
   {
     while (SecurityEventQueue.Count > 0)
     { 
-      _serilogger.Debug($"Server::ProcessSecurityEvents::SecurityEventQueue.Count > 0 and is {SecurityEventQueue.Count}");
+      _serilogger.Debug($"Server.cs: ProcessSecurityEvents::SecurityEventQueue.Count > 0 and is {SecurityEventQueue.Count}");
       Security securityBuffer = SecurityEventQueue.Dequeue();
       switch (securityBuffer.security_type)
       {
