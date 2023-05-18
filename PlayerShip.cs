@@ -50,6 +50,8 @@ public partial class PlayerShip : CharacterBody2D
 
   Node2D shipThing = null;
 
+  CollisionShape2D clickBox = null;
+
   Layout theLayout;
 
   PackedScene MissilePackedScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
@@ -172,6 +174,8 @@ public partial class PlayerShip : CharacterBody2D
     Node2D shipThing = (Node2D)GetParent();
     Label playerIDLabel = (Label)shipThing.GetNode("Stat/IDLabel");
 
+    clickBox = shipThing.GetNode<CollisionShape2D>("ClickBox");
+
     // TODO: deal with really long UUIDs
     playerIDLabel.Text = uuid;
 
@@ -242,6 +246,9 @@ public partial class PlayerShip : CharacterBody2D
     linearVelocityLabel.Text = $"Vel: {CurrentVelocity}";
     hitPointsLabel.Text = $"HP: {HitPoints}";
     positionLabel.Text = $"X: {GlobalPosition.X} Y: {GlobalPosition.Y}";
+
+    // reposition the click box to be located where the ship thing is
+    clickBox.Position = GlobalPosition;
 
     CheckMissileReload(delta);
     UpdateFocused();

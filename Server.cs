@@ -396,11 +396,11 @@ public partial class Server : Node
     // start with the center
     Hex theSector = new Hex(0, 0, 0);
 
-      // C# has no preload, so you have to always use ResourceLoader.Load<PackedScene>().
-      Node shipThingsNode = PlayerPackedScene.Instantiate();
-      PlayerShip newPlayer = shipThingsNode.GetNode<PlayerShip>("PlayerShip");
+    // C# has no preload, so you have to always use ResourceLoader.Load<PackedScene>().
+    Area2D playerShipThingInstance = (Area2D)PlayerPackedScene.Instantiate();
+    PlayerShip newPlayer = playerShipThingInstance.GetNode<PlayerShip>("PlayerShip");
 
-      newPlayer.uuid = UUID;
+    newPlayer.uuid = UUID;
 
     // assign the configured values
     newPlayer.Thrust = PlayerDefaultThrust;
@@ -412,7 +412,7 @@ public partial class Server : Node
     newPlayer.MissileDamage = PlayerDefaultMissileDamage;
 
     _serilogger.Debug($"Server.cs: Adding {UUID} to playerObjects");
-    playerObjects.Add(UUID, newPlayer);
+    playerObjects.Add(UUID, playerShipThingInstance);
     newPlayer.AddToGroup("player_ships");
 
     _serilogger.Debug($"Server.cs: Current count of playerObjects: {playerObjects.Count}");
@@ -488,9 +488,9 @@ public partial class Server : Node
     newPlayer.GlobalPosition = new Vector2(x: (Int32)theSectorCenter.x + xOffset, y: (Int32)theSectorCenter.y + yOffset);
     
     // connect the ship thing input signal so that we can catch when a ship was clicked in the debug UI
-    newPlayer.Connect("input_event", new Callable(this, "_on_ShipThings_input_event"), 0);
-    
-    Players.AddChild(shipThingsNode);
+    playerShipThingInstance.InputEvent += (viewport, theEvent, shapeIdx) => _on_ShipThings_input_event(viewport, theEvent, shapeIdx, newPlayer); // there is a closure around newPlayer now
+
+    Players.AddChild(playerShipThingInstance);
     _serilogger.Information($"Server.cs: Added player {UUID} instance!");
 
     // create a GameEvent for the player joining
@@ -507,19 +507,19 @@ public partial class Server : Node
   {
     _serilogger.Verbose("Server.cs: Processing move command!");
 
-    String uuid = cb.Uuid;
+    String playerUUID = cb.Uuid;
     Node2D playerRoot;
-    if (false == playerObjects.TryGetValue(uuid, out playerRoot))
+    if (false == playerObjects.TryGetValue(playerUUID, out playerRoot))
     {
-        _serilogger.Debug("Server::ProcessMoveCommand failed to get playerRoot from playerObjects! uuid specified: " + uuid);
+        _serilogger.Debug($"Server.cs: ProcessMoveCommand failed to get playerRoot from playerObjects! uuid specified: {playerUUID}");
         return;
     }
-    PlayerShip movePlayer = (PlayerShip)playerRoot;
+    PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
     // process thrust and rotation
     Vector2 thrust = new Vector2(cb.InputX, cb.InputY);
     // push the thrust input onto the player's array
     movePlayer.MovementQueue.Enqueue(thrust);
-    _serilogger.Debug("Server::ProcessMoveCommand movePlayer.MovementQueue.Count is " + movePlayer.MovementQueue.Count);
+    _serilogger.Verbose("Server.cs: ProcessMoveCommand movePlayer.MovementQueue.Count is " + movePlayer.MovementQueue.Count);
   }
 
   void ProcessShootCommand(Command cb)
@@ -528,8 +528,14 @@ public partial class Server : Node
 
     // find the PlayerShip
     String playerUUID = cb.Uuid;
-    Node2D playerRoot = playerObjects[playerUUID];
-    PlayerShip movePlayer = (PlayerShip)playerRoot;
+    Node2D playerRoot;
+    if (false == playerObjects.TryGetValue(playerUUID, out playerRoot))
+    {
+        _serilogger.Debug($"Server.cs: ProcessShootCommand failed to get playerRoot from playerObjects! uuid specified: {playerUUID}");
+        return;
+    }
+
+    PlayerShip movePlayer = playerRoot.GetNode<PlayerShip>("PlayerShip");
     // TODO: should we perform a check here to see if we should bother firing
     // the missile, or leave that to the playership.firemissile method alone?
 
@@ -584,7 +590,7 @@ public partial class Server : Node
   {
     while (GameEventQueue.Count > 0)
     { 
-      _serilogger.Debug($"Server::ProcessGameEvents::GameEventQueue.Count > 0 and is {GameEventQueue.Count}");
+      _serilogger.Verbose($"Server.cs: ProcessGameEvents::GameEventQueue.Count > 0 and is {GameEventQueue.Count}");
       Command commandBuffer = GameEventQueue.Dequeue();
       switch (commandBuffer.command_type)
       {
@@ -607,7 +613,7 @@ public partial class Server : Node
   {
     while (SecurityEventQueue.Count > 0)
     { 
-      _serilogger.Debug($"Server::ProcessSecurityEvents::SecurityEventQueue.Count > 0 and is {SecurityEventQueue.Count}");
+      _serilogger.Debug($"Server.cs: ProcessSecurityEvents::SecurityEventQueue.Count > 0 and is {SecurityEventQueue.Count}");
       Security securityBuffer = SecurityEventQueue.Dequeue();
       switch (securityBuffer.security_type)
       {
@@ -712,12 +718,12 @@ public partial class Server : Node
       SectorSize = (Int32)serverConfig.GetValue("game", "sector_size");
       // player settings
       // https://stackoverflow.com/questions/24447387/cast-object-containing-int-to-float-results-in-invalidcastexception
-      PlayerDefaultThrust = Convert.ToSingle(serverConfig.GetValue("player", "thrust"));
-      PlayerDefaultMaxSpeed = Convert.ToSingle(serverConfig.GetValue("player", "max_speed"));
-      PlayerDefaultRotationThrust = Convert.ToSingle(serverConfig.GetValue("player", "rotation_thrust"));
+      PlayerDefaultThrust = (float)serverConfig.GetValue("player", "thrust");
+      PlayerDefaultMaxSpeed = (float)serverConfig.GetValue("player", "max_speed");
+      PlayerDefaultRotationThrust = (float)serverConfig.GetValue("player", "rotation_thrust");
       PlayerDefaultHitPoints = (int)serverConfig.GetValue("player", "hit_points");
       PlayerDefaultMissileSpeed = (int)serverConfig.GetValue("player", "missile_speed");
-      PlayerDefaultMissileLife = Convert.ToSingle(serverConfig.GetValue("player", "missile_life"));
+      PlayerDefaultMissileLife = (float)serverConfig.GetValue("player", "missile_life");
       PlayerDefaultMissileDamage = (int)serverConfig.GetValue("player", "missile_damage");
       PlayerDefaultMissileReloadTime = (int)serverConfig.GetValue("player", "missile_reload");
       DesiredLogLevel = (int)serverConfig.GetValue("game", "log_level");
@@ -1002,8 +1008,9 @@ public partial class Server : Node
     MessageInterface.SendSecurityDebug(scb);
   }
 
-  void _on_ShipThings_input_event(Node viewport, InputEvent theEvent, int shape_idx, PlayerShip theClickedPlayer)
+  void _on_ShipThings_input_event(Node viewport, InputEvent theEvent, long shape_idx, PlayerShip theClickedPlayer)
   {
+    _serilogger.Debug($"Server.cs: input event for player {theClickedPlayer.uuid}");
     if (theEvent.IsActionPressed("left_click"))
     {
       _serilogger.Debug($"Server.cs: player {theClickedPlayer.uuid} clicked - making current");
@@ -1031,41 +1038,6 @@ public partial class Server : Node
         playerCamera.GetParent<PlayerShip>().isFocused = true;
       }
     }
-  }
-
-  public override void _UnhandledInput(InputEvent @event)
-  {
-
-    //// hop out if we don't have a player to zoom in on
-    //CanvasLayer theCanvas = GetNode<CanvasLayer>("DebugUI");
-    //LineEdit textField = theCanvas.GetNode<LineEdit>("PlayerID");
-    //if (!playerObjects.ContainsKey(textField.Text)) { return; }
-
-    //// grab the camera and zoom it by zoom factor
-    //Node2D playerForCamera = playerObjects[textField.Text];
-    //Camera2D playerCamera = playerForCamera.GetNode<Camera2D>("PlayerShip/Camera2D");
-
-    //if (@event.IsActionPressed("zoom_in"))
-    //{
-    //  _serilogger.Verbose("Server.cs: zoom viewport in!");
-    //  float zoomN = CameraCurrentZoom.x - CameraZoomStepSize;
-    //  zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
-    //  CameraCurrentZoom.x = zoomN;
-    //  CameraCurrentZoom.y = zoomN;
-    //  playerCamera.Zoom = CameraCurrentZoom;
-    //  _serilogger.Verbose($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
-    //}
-
-    //if (@event.IsActionPressed("zoom_out"))
-    //{
-    //  _serilogger.Verbose("Server.cs zoom viewport out!");
-    //  float zoomN = CameraCurrentZoom.x + CameraZoomStepSize;
-    //  zoomN = Mathf.Clamp(zoomN, CameraMaxZoom, CameraMinZoom);
-    //  CameraCurrentZoom.x = zoomN;
-    //  CameraCurrentZoom.y = zoomN;
-    //  playerCamera.Zoom = CameraCurrentZoom;
-    //  _serilogger.Verbose($"Server.cs: Zoom Level: {CameraCurrentZoom.x}, {CameraCurrentZoom.y}");
-    //}
   }
 
   // helper functions
