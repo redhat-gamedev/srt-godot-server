@@ -196,9 +196,12 @@ public partial class Server : Node
   public void RemovePlayer(String UUID)
   {
     _serilogger.Debug($"Server.cs: Removing player: {UUID}");
+
+    // playerObjects stores the base node which is the Area2D.
+    // we need the PlayerShip child.
     Node2D thePlayerToRemove = playerObjects[UUID];
-    PlayerShip thePlayer = (PlayerShip)thePlayerToRemove;
-    Node thePlayerParent = thePlayer.GetParent();
+
+    PlayerShip thePlayer = thePlayerToRemove.GetNode<PlayerShip>("PlayerShip");
 
     // create the buffer for the specific player and send it
     GameEvent gameEvent = new GameEvent();
@@ -209,7 +212,7 @@ public partial class Server : Node
 
     // TODO: should this get wrapped with a try or something?
     playerObjects.Remove(UUID);
-    thePlayerParent.QueueFree();
+    thePlayerToRemove.QueueFree();
 
     // send the player create event message
     MessageInterface.SendGameEvent(gameEvent);
