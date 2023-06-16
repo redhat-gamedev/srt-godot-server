@@ -7,7 +7,7 @@ using Amqp.Types;
 using ProtoBuf;
 using redhatgamedev.srt.v1;
 
-public class AMQPserver : Node
+public partial class AMQPserver : Node
 {
   public Serilog.Core.Logger _serilogger;
 

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-public class StarFieldRadius : Node2D
+public partial class StarFieldRadius : Node2D
 {
 
   public Int32 radius;

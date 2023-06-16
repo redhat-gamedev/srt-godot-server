@@ -2,7 +2,7 @@ using Godot;
 using System;
 using redhatgamedev.srt.v1;
 
-public class SpaceMissile : Area2D
+public partial class SpaceMissile : Area2D
 {
   // for the server we're interfaced with
   Server MyServer;
@@ -20,7 +20,7 @@ public class SpaceMissile : Area2D
   public String uuid;
 
   [Signal]
-  public delegate void Hit(PlayerShip HitPlayer);
+  public delegate void HitEventHandler(PlayerShip HitPlayer);
 
   public GameEvent.GameObject CreateMissileGameObjectBuffer(String OwnerUUID)
   {
@@ -30,8 +30,8 @@ public class SpaceMissile : Area2D
 
     gameObject.Uuid = uuid;
 
-    gameObject.PositionX = (int)GlobalPosition.x;
-    gameObject.PositionY = (int)GlobalPosition.y;
+    gameObject.PositionX = (int)GlobalPosition.X;
+    gameObject.PositionY = (int)GlobalPosition.Y;
 
     gameObject.Angle = RotationDegrees;
 
@@ -50,14 +50,14 @@ public class SpaceMissile : Area2D
     _serilogger = MyServer._serilogger;
 
     // connect the hit signal to handling the hit
-    Connect(nameof(Hit), this, "_HandleHit");
+    //Connect(nameof(Hit), this, "_HandleHit");
 
     // add the missile to the missiles group so that we can iterate over
     // the entire group and send updates later
     AddToGroup("missiles");
   }
 
-  public override void _PhysicsProcess(float delta)
+  public override void _PhysicsProcess(double delta)
   {
     // TODO disable the collision shape until the missile is "away" from the ship
 
@@ -65,12 +65,12 @@ public class SpaceMissile : Area2D
     // then move the missile in the direction of that vector
     Vector2 velocity = new Vector2(0, -1);
     velocity = velocity.Rotated(Rotation);
-    velocity = velocity * MissileSpeed * delta;
+    velocity = velocity * (float)MissileSpeed * (float)delta;
     Position += velocity;
 
     // once the life reaches zero, remove the missile and don't forget
     // to expire it from the parent's perspective
-    MissileLife -= delta;
+    MissileLife -= (float)delta;
     if (MissileLife <= 0) { 
       QueueFree(); 
 
@@ -93,7 +93,8 @@ public class SpaceMissile : Area2D
     }
 
     // We hit another Player, so proceed
-    EmitSignal("Hit", (PlayerShip)body);
+    // EmitSignal("Hit", (PlayerShip)body);
+    _HandleHit((PlayerShip)body);
 
     // Must be deferred as we can't change physics properties on a physics callback.
     GetNode<CollisionShape2D>("CollisionShape2D").SetDeferred("disabled", true);

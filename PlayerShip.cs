@@ -1,29 +1,31 @@
 using Godot;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using redhatgamedev.srt.v1;
 
-public class PlayerShip : KinematicBody2D
+public partial class PlayerShip : CharacterBody2D
 {
   public Serilog.Core.Logger _serilogger;
 
-  public float Thrust = 1f; // effective acceleration
+  public double Thrust = 1f; // effective acceleration
 
-  public float MaxSpeed = 5;
+  public double MaxSpeed = 5;
 
-  public float StopThreshold = 10f;
+  public double StopThreshold = 10f;
 
-  public float GoThreshold = 90f;
+  public double GoThreshold = 90f;
   
-  public float CurrentVelocity = 0;
+  public double CurrentVelocity = 0;
 
-  public float RotationThrust = 1.5f;
+  public double RotationThrust = 1.5f;
 
-  public float CurrentRotation = 0;
+  public double CurrentRotation = 0;
 
   public int HitPoints = 100;
 
-  public Queue MovementQueue = new Queue();
+  public ConcurrentQueue<Vector2> MovementQueue = new ConcurrentQueue<Vector2>();
 
   public String uuid;
 
@@ -41,16 +43,18 @@ public class PlayerShip : KinematicBody2D
   // relevant when two players are very close to one another and
   // prevents missile spamming
   float MissileReloadTime = 2;
-  float MissileReloadCountdown;
+  double MissileReloadCountdown;
   bool MissileReady = true;
 
   public int MissileDamage = 25;
 
   Node2D shipThing = null;
 
+  CollisionShape2D clickBox = null;
+
   Layout theLayout;
 
-  PackedScene MissileScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
+  PackedScene MissilePackedScene = (PackedScene)ResourceLoader.Load("res://SpaceMissile.tscn");
 
   bool QueuedForRemoval = false; // used when this player is about to be removed from play
 
@@ -65,7 +69,7 @@ public class PlayerShip : KinematicBody2D
 
   // used by the debug UI to show which player has the camera focus
   public bool isFocused = false;
-  Sprite shipSprite;
+  Sprite2D shipSprite;
 
   public GameEvent.GameObject CreatePlayerGameObjectBuffer()
   {
@@ -76,14 +80,14 @@ public class PlayerShip : KinematicBody2D
     gameObject.Uuid = uuid;
 
     // TODO: only send if changed?
-    gameObject.PositionX = (int)GlobalPosition.x;
-    gameObject.PositionY = (int)GlobalPosition.y;
+    gameObject.PositionX = (int)GlobalPosition.X;
+    gameObject.PositionY = (int)GlobalPosition.Y;
 
     // TODO: only send if changed?
     gameObject.Angle = RotationDegrees;
 
     // need to send the velocity because that's how the client shows the speedometer
-    gameObject.AbsoluteVelocity = CurrentVelocity;
+    gameObject.AbsoluteVelocity = (float)CurrentVelocity;
     
     // TODO: only send this if it's a change from previous?
     gameObject.HitPoints = HitPoints;
@@ -114,7 +118,8 @@ public class PlayerShip : KinematicBody2D
       return;
     }
 
-    MyMissile = (SpaceMissile)MissileScene.Instance();
+    Node missileNode = MissilePackedScene.Instantiate();
+    MyMissile = (SpaceMissile)missileNode;
 
     // TODO: need to check for UUID collision
     _serilogger.Debug($"PlayerShip.cs: Supplied UUID is {missileUUID}");
@@ -169,11 +174,13 @@ public class PlayerShip : KinematicBody2D
     Node2D shipThing = (Node2D)GetParent();
     Label playerIDLabel = (Label)shipThing.GetNode("Stat/IDLabel");
 
+    clickBox = shipThing.GetNode<CollisionShape2D>("ClickBox");
+
     // TODO: deal with really long UUIDs
     playerIDLabel.Text = uuid;
 
     myCamera = GetNode<Camera2D>("Camera2D");
-    shipSprite = GetNode<Sprite>("Sprite");
+    shipSprite = GetNode<Sprite2D>("Sprite2D");
 
     // TODO: we are doing instant rotation so probably should rename this
     angularVelocityLabel = (Label)shipThing.GetNode("Stat/AngularVelocity");
@@ -205,7 +212,7 @@ public class PlayerShip : KinematicBody2D
     MyServer.PlayerRemoveQueue.Enqueue(uuid);
   }
 
-  void CheckMissileReload(float delta)
+  void CheckMissileReload(double delta)
   {
     // nothing to check if we are already reloaded
     if (MissileReady == true) { return; }
@@ -224,7 +231,7 @@ public class PlayerShip : KinematicBody2D
     else shipSprite.Modulate = new Color(1,1,1,1);
   }
 
-  public override void _Process(float delta)
+  public override void _Process(double delta)
   {
 
     if (QueuedForRemoval) return;
@@ -232,33 +239,36 @@ public class PlayerShip : KinematicBody2D
     if (shipThing == null) shipThing = (Node2D)GetParent();
 
     // figure out the hex from the pixel position
-    FractionalHex theHex = theLayout.PixelToHex(new Point(GlobalPosition.x, GlobalPosition.y));
+    FractionalHex theHex = theLayout.PixelToHex(new Point(GlobalPosition.X, GlobalPosition.Y));
     hexLabel.Text = $"q: {theHex.HexRound().q}, r: {theHex.HexRound().r}, s: {theHex.HexRound().s}";
 
     angularVelocityLabel.Text = $"Rot: {RotationDegrees}";
     linearVelocityLabel.Text = $"Vel: {CurrentVelocity}";
     hitPointsLabel.Text = $"HP: {HitPoints}";
-    positionLabel.Text = $"X: {GlobalPosition.x} Y: {GlobalPosition.y}";
+    positionLabel.Text = $"X: {GlobalPosition.X} Y: {GlobalPosition.Y}";
+
+    // reposition the click box to be located where the ship thing is
+    clickBox.Position = GlobalPosition;
 
     CheckMissileReload(delta);
     UpdateFocused();
   }
-  public override void _PhysicsProcess(float delta)
+  public override void _PhysicsProcess(double delta)
   {
     if (shipThing == null) shipThing = (Node2D)GetParent();
 
     // somewhat based on: https://kidscancode.org/godot_recipes/2d/topdown_movement/
     // "rotate and move" / asteroids-style-ish
 
-    float rotation_dir = 0; // in case we need it
+    double rotation_dir = 0; // in case we need it
 
     _serilogger.Verbose($"{uuid}: handling physics");
-    if (MovementQueue.Count > 0)
+    Vector2 thisMovement = Vector2.Zero;
+    if (MovementQueue.TryDequeue(out thisMovement))
     {
-      Vector2 thisMovement = (Vector2)MovementQueue.Dequeue();
-      _serilogger.Verbose($"UUID: {uuid} X: {thisMovement.x} Y: {thisMovement.y}");
+      _serilogger.Verbose($"UUID: {uuid} X: {thisMovement.X} Y: {thisMovement.Y}");
 
-      if (thisMovement.y > 0)
+      if (thisMovement.Y > 0)
       {
         CurrentVelocity = Mathf.Lerp(CurrentVelocity, MaxSpeed, Thrust * delta);
 
@@ -266,7 +276,7 @@ public class PlayerShip : KinematicBody2D
         if (CurrentVelocity > MaxSpeed * (GoThreshold/100)) { CurrentVelocity = MaxSpeed; }
       }
 
-      if (thisMovement.y < 0)
+      if (thisMovement.Y < 0)
       {
         CurrentVelocity = Mathf.Lerp(CurrentVelocity, 0, Thrust * delta);
 
@@ -275,17 +285,17 @@ public class PlayerShip : KinematicBody2D
         if (CurrentVelocity < MaxSpeed * (StopThreshold/100)) { CurrentVelocity = 0; }
       }
 
-      if (thisMovement.x != 0)
+      if (thisMovement.X != 0)
       {
-        rotation_dir = thisMovement.x;
+        rotation_dir = thisMovement.X;
       }
 
       _serilogger.Verbose($"UUID: {uuid} Velocity: {CurrentVelocity}");
-
     }
-    Vector2 velocity =  -(Transform.y * CurrentVelocity);
-    _serilogger.Verbose($"UUID: {uuid} Vector X: {velocity.x} Y: {velocity.y} ");
-    Rotation += rotation_dir * RotationThrust * delta;
+    
+    Vector2 velocity =  -(Transform.Y * (float)CurrentVelocity);
+    _serilogger.Verbose($"UUID: {uuid} Vector X: {velocity.X} Y: {velocity.Y} ");
+    Rotation += (float)(rotation_dir * RotationThrust * delta);
 
     // TODO: implement collision mechanics
     MoveAndCollide(velocity);
