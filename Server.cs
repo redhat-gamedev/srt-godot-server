@@ -110,7 +110,7 @@ public partial class Server : Node
 
 
   /* snapshot interpolation things */
-  public UInt32 sequenceNumber = 0;
+  public UInt32 sequenceNumber = 1;
 
   // number of ms to wait before sending updates
   long frameTimerMs = 50;
@@ -134,16 +134,13 @@ public partial class Server : Node
       return;
     }
 
-    sequenceNumber++;
     _serilogger.Verbose("Server.cs: Sending updates about game state to clients");
     lastSentTime = timeNow;
 
     int x = 0;
 
     // begin to build the GameEvent update
-    GameEvent updateEvent = new GameEvent();
-    updateEvent.Sequence = sequenceNumber;
-    updateEvent.game_event_type = GameEvent.GameEventType.GameEventTypeUpdate;
+    GameEvent updateEvent = _GetNewGameEvent(GameEvent.GameEventType.GameEventTypeUpdate);
 
     Godot.Collections.Array<Node> players = _GetNodesFromGroup("player_ships");
     Godot.Collections.Array<Node> missiles = GetTree().GetNodesInGroup("missiles");
@@ -204,8 +201,8 @@ public partial class Server : Node
     PlayerShip thePlayer = thePlayerToRemove.GetNode<PlayerShip>("PlayerShip");
 
     // create the buffer for the specific player and send it
-    GameEvent gameEvent = new GameEvent();
-    gameEvent.game_event_type = GameEvent.GameEventType.GameEventTypeDestroy;
+    GameEvent gameEvent = _GetNewGameEvent(GameEvent.GameEventType.GameEventTypeDestroy);
+
     GameEvent.GameObject gameObject = new GameEvent.GameObject();
     gameObject = thePlayer.CreatePlayerGameObjectBuffer();
     gameEvent.GameObjects.Add(gameObject);
@@ -226,8 +223,7 @@ public partial class Server : Node
     missile.QueueFree();
 
     // create the buffer for the missile and send it
-    GameEvent gameEvent = new GameEvent();
-    gameEvent.game_event_type = GameEvent.GameEventType.GameEventTypeDestroy;
+    GameEvent gameEvent = _GetNewGameEvent(GameEvent.GameEventType.GameEventTypeDestroy);
     GameEvent.GameObject gameObject = new GameEvent.GameObject();
     gameObject = missile.CreateMissileGameObjectBuffer(missile.MyPlayer.uuid);
     gameEvent.GameObjects.Add(gameObject);
@@ -377,8 +373,7 @@ public partial class Server : Node
     _serilogger.Debug($"Server.cs: Sending missile creation message for missile {missile.uuid} player {missile.MyPlayer.uuid}");
 
     // create a GameEvent for a missile
-    GameEvent egeb = new GameEvent();
-    egeb.game_event_type = GameEvent.GameEventType.GameEventTypeCreate;
+    GameEvent egeb = _GetNewGameEvent(GameEvent.GameEventType.GameEventTypeCreate);
 
     egeb.GameObjects.Add(missile.CreateMissileGameObjectBuffer(missile.MyPlayer.uuid));
 
@@ -497,8 +492,8 @@ public partial class Server : Node
     _serilogger.Information($"Server.cs: Added player {UUID} instance!");
 
     // create a GameEvent for the player joining
-    GameEvent egeb = new GameEvent();
-    egeb.game_event_type = GameEvent.GameEventType.GameEventTypeCreate;
+    GameEvent egeb = _GetNewGameEvent(GameEvent.GameEventType.GameEventTypeCreate);
+
     egeb.GameObjects.Add(newPlayer.CreatePlayerGameObjectBuffer());
 
     // send the player create event message
@@ -1093,6 +1088,15 @@ public partial class Server : Node
       }
     }
     _serilogger.Debug($"Server.cs: New starfield radius is: {StarFieldRadiusPixels}");
+  }
+
+  // used to ensure that the sequence number is always incremented before using a game event
+  GameEvent _GetNewGameEvent(GameEvent.GameEventType theType)
+  {
+    GameEvent theEvent = new GameEvent();
+    theEvent.Sequence = ++sequenceNumber;
+    theEvent.game_event_type = theType;
+    return theEvent;
   }
 
 }
